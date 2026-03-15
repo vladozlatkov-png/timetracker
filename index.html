@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Time Tracker">
+<title>Time Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.svg">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f;
+    --bg2: #1a1a1a;
+    --bg3: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #555;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; overflow: hidden; }
+  #app { height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px); gap: 10px; max-width: 480px; margin: 0 auto; }
+
+  /* Header */
+  #hdr { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; flex-shrink: 0; }
+  #hdr-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  #hdr-clock { font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  #hdr-tabs { display: flex; gap: 6px; }
+  #hdr-tabs button { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; }
+  #hdr-tabs button.active { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 500; }
+
+  /* Timer bar */
+  #tbar { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-height: 44px; }
+  #tbar-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; flex-shrink: 0; opacity: 0; }
+  #tbar-dot.on { opacity: 1; animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  #tbar-text { font-size: 13px; color: var(--text2); flex: 1; }
+  #tbar-stop { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; display: none; }
+  #tbar-stop.show { display: block; }
+
+  /* Main grid view */
+  #view-grid { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
+  #act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex-shrink: 0; }
+  .abt {
+    position: relative; border: 0.5px solid var(--border); border-radius: var(--radius); cursor: pointer;
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; user-select: none; -webkit-user-select: none; touch-action: none; overflow: hidden;
+    transition: transform 0.1s; background: var(--bg2);
+  }
+  .abt:active { transform: scale(0.93); }
+  .abt.is-active { border-color: rgba(255,255,255,0.3); }
+  .abt .abt-fill { position: absolute; inset: 0; opacity: 0.12; }
+  .abt .abt-icon { font-size: 22px; line-height: 1; position: relative; z-index: 1; }
+  .abt .abt-label { font-size: 11px; font-weight: 500; position: relative; z-index: 1; color: var(--text); }
+  .abt .abt-ring { position: absolute; inset: 0; border-radius: var(--radius); border: 2px solid rgba(255,255,255,0.3); transform: scale(0); transition: transform 0.65s cubic-bezier(0.25,0,0,1); pointer-events: none; }
+  .abt.pressing .abt-ring { transform: scale(1); }
+
+  /* Sub layer */
+  #sub-layer { display: none; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  #sub-layer.open { display: block; }
+  #sub-header { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+  #sub-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { padding: 7px 14px; border-radius: 20px; border: 0.5px solid var(--border2); font-size: 13px; cursor: pointer; background: var(--bg3); color: var(--text); transition: background 0.1s; }
+  .chip.active { background: var(--text); color: var(--bg); border-color: transparent; }
+
+  /* Log view */
+  #view-log { flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 6px; }
+  #view-log.show { display: flex; }
+  #view-grid.hide { display: none; }
+  .log-day-label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 0 2px; }
+  .log-entry { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .log-pip { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .log-info { flex: 1; }
+  .log-name { font-size: 13px; font-weight: 500; }
+  .log-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .log-dur { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
+  #log-empty { font-size: 13px; color: var(--text3); text-align: center; padding: 2rem 0; }
+
+  /* Export view */
+  #view-export { flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 10px; }
+  #view-export.show { display: flex; }
+  .exp-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .exp-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .exp-card p { font-size: 12px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; }
+  .exp-btn { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 13px; cursor: pointer; transition: background 0.1s; }
+  .exp-btn:hover { background: rgba(255,255,255,0.1); }
+  .exp-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .stat-box { background: var(--bg3); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .stat-val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hdr">
+    <span id="hdr-title">Time Tracker</span>
+    <div id="hdr-tabs">
+      <button class="active" onclick="switchTab('grid')">Track</button>
+      <button onclick="switchTab('log')">Log</button>
+      <button onclick="switchTab('export')">Export</button>
+    </div>
+  </div>
+
+  <div id="tbar">
+    <div id="tbar-dot"></div>
+    <span id="tbar-text">Tap to track · Hold for sub-activity</span>
+    <button id="tbar-stop" onclick="stopCurrent()">Stop</button>
+  </div>
+
+  <!-- GRID VIEW -->
+  <div id="view-grid">
+    <div id="act-grid"></div>
+    <div id="sub-layer">
+      <div id="sub-header"></div>
+      <div id="sub-chips"></div>
+    </div>
+  </div>
+
+  <!-- LOG VIEW -->
+  <div id="view-log">
+    <div id="log-empty">No entries yet</div>
+  </div>
+
+  <!-- EXPORT VIEW -->
+  <div id="view-export">
+    <div class="exp-card">
+      <h3>Daily report</h3>
+      <div class="exp-stats" id="stats-day"></div>
+      <p>All entries from today with start/end times and durations.</p>
+      <button class="exp-btn" onclick="exportCSV('day')">Download today's CSV</button>
+    </div>
+    <div class="exp-card">
+      <h3>Weekly report</h3>
+      <div class="exp-stats" id="stats-week"></div>
+      <p>Last 7 days of activity grouped by date.</p>
+      <button class="exp-btn" onclick="exportCSV('week')">Download weekly CSV</button>
+    </div>
+    <div class="exp-card">
+      <h3>Monthly report</h3>
+      <div class="exp-stats" id="stats-month"></div>
+      <p>This calendar month, totals per activity included.</p>
+      <button class="exp-btn" onclick="exportCSV('month')">Download monthly CSV</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ACTS = [
+  { id:'rest',    label:'Rest',    icon:'🛋', color:'#1D9E75', subs:['Sleep','Nap','Rest','Other'] },
+  { id:'eat',     label:'Eat',     icon:'🍽', color:'#EF9F27', subs:['Cook','Breakfast','Lunch','Snack','Dinner','Dine out'] },
+  { id:'care',    label:'Care',    icon:'🪥', color:'#D4537E', subs:['Personal','Custom'] },
+  { id:'billing', label:'Billing', icon:'💳', color:'#7F77DD', subs:['Audit work','EV','Custom'] },
+  { id:'work',    label:'Work',    icon:'🔨', color:'#378ADD', subs:['House','Garden','Custom'] },
+  { id:'train',   label:'Train',   icon:'🏊', color:'#D85A30', subs:['Swimming','Tennis','Yoga','Weights','Run','Bike','Custom'] },
+  { id:'study',   label:'Study',   icon:'📚', color:'#639922', subs:['Language','AI','IDES','Custom'] },
+  { id:'pets',    label:'Pets',    icon:'🐾', color:'#BA7517', subs:['Food','Train','Play','Custom'] }
+];
+
+let S = {
+  active: null, activeSub: null, startTime: null,
+  timerInt: null, clockInt: null,
+  entries: [],
+  tab: 'grid'
+};
+
+function load() {
+  try { S.entries = JSON.parse(localStorage.getItem('tt_v1') || '[]'); } catch(e){ S.entries=[]; }
+}
+function save() {
+  try { localStorage.setItem('tt_v1', JSON.stringify(S.entries)); } catch(e){}
+}
+load();
+
+function fmtDur(ms) {
+  const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60);
+  return h>0?`${h}h ${m%60}m`:m>0?`${m}m ${s%60}s`:`${s}s`;
+}
+function fmtTime(ts){ return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(ts){ return new Date(ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}); }
+
+function stopCurrent() {
+  if (!S.active || !S.startTime) return;
+  const dur = Date.now() - S.startTime;
+  if (dur > 1500) {
+    const act = ACTS.find(a=>a.id===S.active);
+    S.entries.unshift({ id:Date.now(), activity:S.active, label:act.label, sub:S.activeSub||'', start:S.startTime, end:Date.now(), duration:dur, color:act.color });
+    save();
+  }
+  clearInterval(S.timerInt);
+  S.active=null; S.activeSub=null; S.startTime=null;
+  document.getElementById('tbar-dot').classList.remove('on');
+  document.getElementById('tbar-text').textContent='Tap to track · Hold for sub-activity';
+  document.getElementById('tbar-stop').classList.remove('show');
+  document.querySelectorAll('.abt').forEach(b=>b.classList.remove('is-active'));
+  document.getElementById('sub-layer').classList.remove('open');
+  if(S.tab==='log') renderLog();
+}
+
+function startActivity(id, sub) {
+  stopCurrent();
+  const act=ACTS.find(a=>a.id===id);
+  S.active=id; S.activeSub=sub||null; S.startTime=Date.now();
+  document.getElementById('tbar-dot').classList.add('on');
+  document.getElementById('tbar-stop').classList.add('show');
+  const btn=document.querySelector(`[data-id="${id}"]`);
+  if(btn) btn.classList.add('is-active');
+  clearInterval(S.timerInt);
+  S.timerInt=setInterval(()=>{
+    const el=Date.now()-S.startTime;
+    document.getElementById('tbar-text').textContent=`${act.icon} ${act.label}${S.activeSub?' · '+S.activeSub:''} · ${fmtDur(el)}`;
+  },1000);
+  document.getElementById('tbar-text').textContent=`${act.icon} ${act.label}${sub?' · '+sub:''} · 0s`;
+}
+
+function openSub(id) {
+  const act=ACTS.find(a=>a.id===id);
+  document.getElementById('sub-header').textContent=`${act.label} — choose sub-activity`;
+  const grid=document.getElementById('sub-chips');
+  grid.innerHTML='';
+  act.subs.forEach(s=>{
+    const c=document.createElement('button');
+    c.className='chip'; c.textContent=s;
+    if(S.active===id && S.activeSub===s) c.classList.add('active');
+    c.onclick=()=>{
+      document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      startActivity(id,s);
+    };
+    grid.appendChild(c);
+  });
+  document.getElementById('sub-layer').classList.add('open');
+}
+
+function buildGrid() {
+  const g=document.getElementById('act-grid');
+  g.innerHTML='';
+  ACTS.forEach(act=>{
+    const btn=document.createElement('div');
+    btn.className='abt'; btn.setAttribute('data-id',act.id);
+    btn.innerHTML=`<div class="abt-fill" style="background:${act.color}"></div><div class="abt-ring"></div><span class="abt-icon">${act.icon}</span><span class="abt-label">${act.label}</span>`;
+    let ptimer=null, didLong=false;
+    const sp=()=>{ didLong=false; btn.classList.add('pressing'); ptimer=setTimeout(()=>{ didLong=true; btn.classList.remove('pressing'); openSub(act.id); },600); };
+    const ep=()=>{ clearTimeout(ptimer); btn.classList.remove('pressing'); if(!didLong){ if(S.active===act.id&&!S.activeSub){stopCurrent();}else{startActivity(act.id,null);} } };
+    const cp=()=>{ clearTimeout(ptimer); btn.classList.remove('pressing'); didLong=true; };
+    btn.addEventListener('mousedown',sp);
+    btn.addEventListener('mouseup',ep);
+    btn.addEventListener('mouseleave',cp);
+    btn.addEventListener('touchstart',e=>{e.preventDefault();sp();},{passive:false});
+    btn.addEventListener('touchend',e=>{e.preventDefault();ep();});
+    btn.addEventListener('touchcancel',cp);
+    g.appendChild(btn);
+  });
+}
+
+function renderLog() {
+  const el=document.getElementById('view-log');
+  if(!S.entries.length){ el.innerHTML='<div id="log-empty">No entries yet</div>'; return; }
+  let html='', lastDay='';
+  S.entries.slice(0,100).forEach(e=>{
+    const day=new Date(e.start).toDateString();
+    if(day!==lastDay){ html+=`<div class="log-day-label">${fmtDate(e.start)}</div>`; lastDay=day; }
+    html+=`<div class="log-entry"><div class="log-pip" style="background:${e.color}"></div><div class="log-info"><div class="log-name">${e.label}${e.sub?' · '+e.sub:''}</div><div class="log-meta">${fmtTime(e.start)} – ${fmtTime(e.end)}</div></div><div class="log-dur">${fmtDur(e.duration)}</div></div>`;
+  });
+  el.innerHTML=html;
+}
+
+function periodEntries(period) {
+  const now=new Date();
+  return S.entries.filter(e=>{
+    const d=new Date(e.start);
+    if(period==='day') return d.toDateString()===now.toDateString();
+    if(period==='week'){ const w=new Date(now); w.setDate(now.getDate()-6); return d>=w; }
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  });
+}
+
+function renderStats() {
+  ['day','week','month'].forEach(p=>{
+    const rows=periodEntries(p);
+    const total=rows.reduce((a,e)=>a+e.duration,0);
+    const acts=[...new Set(rows.map(e=>e.activity))].length;
+    document.getElementById(`stats-${p}`).innerHTML=`
+      <div class="stat-box"><div class="stat-val">${fmtDur(total)||'0m'}</div><div class="stat-lbl">Total tracked</div></div>
+      <div class="stat-box"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Entries (${acts} activities)</div></div>`;
+  });
+}
+
+function exportCSV(period) {
+  const rows=periodEntries(period);
+  if(!rows.length){ alert('No entries for this period.'); return; }
+  const lines=['Date,Day,Start,End,Activity,Sub-activity,Duration (min)'];
+  rows.forEach(e=>{
+    const d=new Date(e.start);
+    lines.push([d.toLocaleDateString(),d.toLocaleDateString(undefined,{weekday:'long'}),fmtTime(e.start),fmtTime(e.end),e.label,e.sub||'',(e.duration/60000).toFixed(1)].join(','));
+  });
+  // Add totals per activity
+  lines.push('','Activity,,,,,Total (min)');
+  const totals={};
+  rows.forEach(e=>{ totals[e.label]=(totals[e.label]||0)+e.duration; });
+  Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([l,d])=>lines.push(`${l},,,,,(${(d/60000).toFixed(1)})`));
+  const csv=lines.join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`timetracker-${period}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function switchTab(tab) {
+  S.tab=tab;
+  document.querySelectorAll('#hdr-tabs button').forEach((b,i)=>{ b.classList.toggle('active',['grid','log','export'][i]===tab); });
+  document.getElementById('view-grid').classList.toggle('hide',tab!=='grid');
+  document.getElementById('view-log').classList.toggle('show',tab==='log');
+  document.getElementById('view-export').classList.toggle('show',tab==='export');
+  if(tab==='log') renderLog();
+  if(tab==='export') renderStats();
+}
+
+function clockTick() {
+  document.getElementById('hdr-clock') && (document.getElementById('hdr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+}
+
+// Add clock to header
+const clk=document.createElement('span');
+clk.id='hdr-clock'; clk.style.cssText='font-size:13px;color:#555;font-variant-numeric:tabular-nums;';
+document.getElementById('hdr').appendChild(clk);
+setInterval(clockTick,1000); clockTick();
+
+buildGrid();
+
+// Register service worker
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
