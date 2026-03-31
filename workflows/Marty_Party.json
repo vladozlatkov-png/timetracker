@@ -1,0 +1,878 @@
+{
+  "name": "Marty_Party",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 300],
+      "webhookId": "marty-party-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-marty-party",
+          "name": "Marty Party Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM bot.skills\nWHERE status = 'active'\nAND (\n  LOWER('{{ $json.message.text }}') LIKE '%' || LOWER(trigger_command) || '%'\n  OR LOWER('{{ $json.message.text }}') = LOWER(trigger_command)\n)\nLIMIT 1",
+        "options": {}
+      },
+      "id": "postgres-skill-lookup",
+      "name": "Lookup Skill",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "skill-matched",
+              "leftValue": "={{ $json.skill_key }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-skill-matched",
+      "name": "Skill Matched?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputIndex": 0,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.skill_key }}",
+                    "rightValue": "daily_tasks",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 1,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.skill_key }}",
+                    "rightValue": "add_task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 2,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.skill_key }}",
+                    "rightValue": "complete_task",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 3,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.skill_key }}",
+                    "rightValue": "morning_briefing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 4,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.skill_key }}",
+                    "rightValue": "network_status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "switch-skill",
+      "name": "Route Skill",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [940, 160]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, due_date, category, status\nFROM personal.tasks\nWHERE status = 'pending'\nAND (due_date::date = CURRENT_DATE OR due_date IS NULL)\nORDER BY due_date ASC",
+        "options": {}
+      },
+      "id": "postgres-daily-tasks",
+      "name": "Get Daily Tasks",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1200, -100],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tasks = $input.all();\nif (tasks.length === 0 || !tasks[0].json.id) {\n  return [{ json: { text: '*No pending tasks for today!* \\n\\nUse \"add task\" to create one.' } }];\n}\n\nlet msg = '*📋 Today\\'s Tasks:*\\n\\n';\ntasks.forEach((item, i) => {\n  const t = item.json;\n  const due = t.due_date ? new Date(t.due_date).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'No deadline';\n  const cat = t.category ? ` \\`${t.category}\\`` : '';\n  msg += `${i + 1}. *${t.title}*${cat}\\n   ⏰ ${due}\\n`;\n});\n\nmsg += `\\n_Total: ${tasks.length} task(s)_`;\nreturn [{ json: { text: msg } }];"
+      },
+      "id": "format-daily-tasks",
+      "name": "Format Tasks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, -100]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $('Telegram Trigger').first().json.message.text;\n\n// Remove the trigger command portion and parse the rest\nconst text = message.replace(/add\\s*task/i, '').trim();\n\n// Try to extract a date pattern (YYYY-MM-DD, DD/MM/YYYY, tomorrow, today)\nlet dueDate = null;\nlet title = text;\n\n// ISO date\nconst isoMatch = text.match(/(\\d{4}-\\d{2}-\\d{2})/);\n// Relative dates\nconst tomorrowMatch = text.match(/\\btomorrow\\b/i);\nconst todayMatch = text.match(/\\btoday\\b/i);\n\nif (isoMatch) {\n  dueDate = isoMatch[1];\n  title = text.replace(isoMatch[0], '').trim();\n} else if (tomorrowMatch) {\n  const d = new Date();\n  d.setDate(d.getDate() + 1);\n  dueDate = d.toISOString().split('T')[0];\n  title = text.replace(/\\btomorrow\\b/i, '').trim();\n} else if (todayMatch) {\n  dueDate = new Date().toISOString().split('T')[0];\n  title = text.replace(/\\btoday\\b/i, '').trim();\n}\n\n// Clean up extra whitespace and trailing punctuation\ntitle = title.replace(/\\s+/g, ' ').replace(/^[\\s,:-]+|[\\s,:-]+$/g, '').trim();\n\nif (!title) {\n  title = 'Untitled task';\n}\n\nreturn [{ json: { title, dueDate } }];"
+      },
+      "id": "parse-add-task",
+      "name": "Parse Add Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 60]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO personal.tasks (title, due_date, status, category)\nVALUES (\n  '{{ $json.title }}',\n  {{ $json.dueDate ? \"'\" + $json.dueDate + \"'\" : 'NULL' }},\n  'pending',\n  'personal'\n)\nRETURNING id, title, due_date",
+        "options": {}
+      },
+      "id": "postgres-add-task",
+      "name": "Insert Task",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, 60],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = $input.first().json;\nconst due = t.due_date ? `\\n📅 Due: ${t.due_date}` : '';\nreturn [{ json: { text: `✅ *Task added!*\\n\\n*${t.title}*${due}\\nStatus: pending` } }];"
+      },
+      "id": "format-add-task",
+      "name": "Confirm Add",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 60]
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $('Telegram Trigger').first().json.message.text;\nconst taskName = message.replace(/complete\\s*task/i, '').replace(/done\\s*with/i, '').trim().replace(/^[\\s,:-]+|[\\s,:-]+$/g, '');\nreturn [{ json: { taskName } }];"
+      },
+      "id": "parse-complete-task",
+      "name": "Parse Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 220]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE personal.tasks\nSET status = 'done', updated_at = NOW()\nWHERE LOWER(title) LIKE '%' || LOWER('{{ $json.taskName }}') || '%'\nAND status = 'pending'\nRETURNING id, title",
+        "options": {}
+      },
+      "id": "postgres-complete-task",
+      "name": "Complete Task",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, 220],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nif (result && result.id) {\n  return [{ json: { text: `✅ *Task completed!*\\n\\n~${result.title}~\\nMarked as done.` } }];\n}\nreturn [{ json: { text: '⚠️ *Task not found.*\\n\\nNo pending task matching that name was found.' } }];"
+      },
+      "id": "format-complete-task",
+      "name": "Confirm Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Lookup Skill').first().json.webhook_url || 'https://automation.easyventures.eu/webhook/morning-briefing' }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-morning-briefing",
+      "name": "Trigger Morning Briefing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst text = resp.text || resp.message || '☀️ *Morning briefing triggered!*\\nCheck your channels for the full report.';\nreturn [{ json: { text } }];"
+      },
+      "id": "format-morning-briefing",
+      "name": "Format Briefing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Lookup Skill').first().json.webhook_url || 'https://automation.easyventures.eu/webhook/network-status' }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-network-status",
+      "name": "Trigger Network Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 540]
+    },
+    {
+      "parameters": {
+        "jsCode": "const resp = $input.first().json;\nconst text = resp.text || resp.message || '🌐 *Network status check triggered!*\\nResults will be sent shortly.';\nreturn [{ json: { text } }];"
+      },
+      "id": "format-network-status",
+      "name": "Format Network",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 540]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT role, content FROM personal.conversations\nWHERE telegram_id = '{{ $('Telegram Trigger').first().json.message.from.id }}'\nORDER BY created_at DESC\nLIMIT 10",
+        "options": {}
+      },
+      "id": "postgres-conversation-history",
+      "name": "Get Conversation History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [940, 560],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const history = $input.all().map(item => item.json);\nconst currentMessage = $('Telegram Trigger').first().json.message.text;\n\n// Build messages array from history (reverse to chronological order)\nconst messages = [];\n\n// Add history in chronological order\nconst sorted = history.filter(h => h.role && h.content).reverse();\nsorted.forEach(h => {\n  messages.push({ role: h.role, content: h.content });\n});\n\n// Add current user message\nmessages.push({ role: 'user', content: currentMessage });\n\nconst now = new Date().toISOString();\n\nconst body = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1000,\n  system: `You are Rosa, a personal assistant for Vlado. You help manage daily tasks, summarize emails and calendar, monitor home network, and handle personal productivity. Today is ${now}. Always respond concisely. When you identify an action (create task, update task, set reminder), return a JSON object with fields: intent, reply, action. For general conversation just return: {\"intent\": \"chat\", \"reply\": \"your response\"}.`,\n  messages: messages\n};\n\nreturn [{ json: { body, telegramId: $('Telegram Trigger').first().json.message.from.id, userMessage: currentMessage } }];"
+      },
+      "id": "build-claude-request",
+      "name": "Build Claude Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 700]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.anthropicApi.apiKey }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "claude-api-call",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 700],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst telegramId = $('Build Claude Request').first().json.telegramId;\nconst userMessage = $('Build Claude Request').first().json.userMessage;\n\n// Extract text from Claude response\nlet rawText = '';\nif (response.content && response.content.length > 0) {\n  rawText = response.content[0].text;\n}\n\n// Try to parse as JSON for action detection\nlet parsed = null;\ntry {\n  // Handle cases where response might be wrapped in markdown code blocks\n  const cleaned = rawText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = { intent: 'chat', reply: rawText };\n}\n\nconst reply = parsed.reply || rawText;\nconst intent = parsed.intent || 'chat';\nconst action = parsed.action || null;\n\nreturn [{\n  json: {\n    text: reply,\n    intent,\n    action,\n    telegramId,\n    userMessage,\n    assistantReply: reply\n  }\n}];"
+      },
+      "id": "parse-claude-response",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-detected",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            },
+            {
+              "id": "not-null",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-action-detected",
+      "name": "Action Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1920, 700]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DO $$\nBEGIN\n  -- Execute action based on parsed intent\n  IF '{{ $json.intent }}' = 'create_task' THEN\n    INSERT INTO personal.tasks (title, due_date, status, category)\n    VALUES (\n      '{{ $json.action.title || \"Untitled\" }}',\n      {{ $json.action.due_date ? \"'\" + $json.action.due_date + \"'\" : 'NULL' }},\n      'pending',\n      '{{ $json.action.category || \"personal\" }}'\n    );\n  ELSIF '{{ $json.intent }}' = 'update_task' THEN\n    UPDATE personal.tasks\n    SET status = '{{ $json.action.status || \"done\" }}', updated_at = NOW()\n    WHERE LOWER(title) LIKE '%' || LOWER('{{ $json.action.title || \"\" }}') || '%'\n    AND status = 'pending';\n  END IF;\nEND $$;",
+        "options": {}
+      },
+      "id": "postgres-execute-action",
+      "name": "Execute Action",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2160, 620],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO personal.conversations (telegram_id, role, content, created_at)\nVALUES\n  ('{{ $json.telegramId }}', 'user', '{{ $json.userMessage.replace(/'/g, \"''\") }}', NOW()),\n  ('{{ $json.telegramId }}', 'assistant', '{{ $json.assistantReply.replace(/'/g, \"''\") }}', NOW())",
+        "options": {}
+      },
+      "id": "postgres-save-conversation",
+      "name": "Save Conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2160, 780],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO personal.conversations (telegram_id, role, content, created_at)\nVALUES\n  ('{{ $json.telegramId }}', 'user', '{{ $json.userMessage.replace(/'/g, \"''\") }}', NOW()),\n  ('{{ $json.telegramId }}', 'assistant', '{{ $json.assistantReply.replace(/'/g, \"''\") }}', NOW())",
+        "options": {}
+      },
+      "id": "postgres-save-conversation-no-action",
+      "name": "Save Conversation (No Action)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [2160, 860],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-send-skill",
+      "name": "Send Skill Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1920, 160],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-marty-party",
+          "name": "Marty Party Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-send-claude",
+      "name": "Send Claude Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2400, 700],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-marty-party",
+          "name": "Marty Party Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').first().json.message.chat.id }}",
+        "text": "Sorry, something went wrong. Try again in a moment.",
+        "additionalFields": {}
+      },
+      "id": "telegram-error",
+      "name": "Send Error Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1920, 940],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-marty-party",
+          "name": "Marty Party Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Lookup Skill",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Skill": {
+      "main": [
+        [
+          {
+            "node": "Skill Matched?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skill Matched?": {
+      "main": [
+        [
+          {
+            "node": "Route Skill",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Conversation History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Skill": {
+      "main": [
+        [
+          {
+            "node": "Get Daily Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Add Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Morning Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trigger Network Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Daily Tasks": {
+      "main": [
+        [
+          {
+            "node": "Format Tasks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Tasks": {
+      "main": [
+        [
+          {
+            "node": "Send Skill Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Add Task": {
+      "main": [
+        [
+          {
+            "node": "Insert Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Task": {
+      "main": [
+        [
+          {
+            "node": "Confirm Add",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Add": {
+      "main": [
+        [
+          {
+            "node": "Send Skill Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Complete": {
+      "main": [
+        [
+          {
+            "node": "Complete Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Complete Task": {
+      "main": [
+        [
+          {
+            "node": "Confirm Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Complete": {
+      "main": [
+        [
+          {
+            "node": "Send Skill Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Morning Briefing": {
+      "main": [
+        [
+          {
+            "node": "Format Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Briefing": {
+      "main": [
+        [
+          {
+            "node": "Send Skill Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Network Status": {
+      "main": [
+        [
+          {
+            "node": "Format Network",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Network": {
+      "main": [
+        [
+          {
+            "node": "Send Skill Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Conversation History": {
+      "main": [
+        [
+          {
+            "node": "Build Claude Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude Request": {
+      "main": [
+        [
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Action Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Detected?": {
+      "main": [
+        [
+          {
+            "node": "Execute Action",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Conversation (No Action)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Action": {
+      "main": [
+        [
+          {
+            "node": "Send Claude Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Conversation": {
+      "main": [
+        [
+          {
+            "node": "Send Claude Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Conversation (No Action)": {
+      "main": [
+        [
+          {
+            "node": "Send Claude Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "telegram",
+      "id": "telegram"
+    },
+    {
+      "name": "personal-assistant",
+      "id": "personal-assistant"
+    }
+  ],
+  "triggerCount": 1,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "automation-easyventures"
+  },
+  "notes": "Marty_Party - Personal Assistant Telegram Bot Workflow\n\nFlow:\n1. Telegram Trigger receives messages from Marty_Party_Bot\n2. Skill lookup checks bot.skills table for matching commands\n3. If skill matched → routes to direct handler (daily_tasks, add_task, complete_task, morning_briefing, network_status)\n4. If no skill → Claude API with conversation history for intelligent responses\n5. Claude can detect actions (create/update tasks) and execute them\n6. All conversations saved to personal.conversations for context\n\nCredentials needed:\n- Telegram Bot API (Marty Party Bot)\n- PostgreSQL (AuditOS - 100.68.214.22:5432)\n- Anthropic API Key (for Claude claude-sonnet-4-6)\n\nError handling: Any failure sends a friendly error message to the user."
+}
