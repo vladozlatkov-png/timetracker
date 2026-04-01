@@ -31,6 +31,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [460, 300],
+      "onError": "continueErrorOutput",
       "credentials": {
         "postgres": {
           "id": "postgres-audit-os",
@@ -169,6 +170,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [1200, -100],
+      "onError": "continueErrorOutput",
       "credentials": {
         "postgres": {
           "id": "postgres-audit-os",
@@ -207,6 +209,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [1440, 60],
+      "onError": "continueErrorOutput",
       "credentials": {
         "postgres": {
           "id": "postgres-audit-os",
@@ -245,6 +248,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [1440, 220],
+      "onError": "continueErrorOutput",
       "credentials": {
         "postgres": {
           "id": "postgres-audit-os",
@@ -330,7 +334,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const history = $input.all().map(item => item.json);\nconst currentMessage = $('Telegram Trigger').first().json.message.text;\n\n// Build messages array from history (reverse to chronological order)\nconst messages = [];\n\n// Add history in chronological order\nconst sorted = history.filter(h => h.role && h.content).reverse();\nsorted.forEach(h => {\n  messages.push({ role: h.role, content: h.content });\n});\n\n// Add current user message\nmessages.push({ role: 'user', content: currentMessage });\n\nconst now = new Date().toISOString();\n\nconst body = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1000,\n  system: `You are Rosa, a personal assistant for Vlado. You help manage daily tasks, summarize emails and calendar, monitor home network, and handle personal productivity. Today is ${now}. Always respond concisely. When you identify an action (create task, update task, set reminder), return a JSON object with fields: intent, reply, action. For general conversation just return: {\"intent\": \"chat\", \"reply\": \"your response\"}.`,\n  messages: messages\n};\n\nreturn [{ json: { body, telegramId: $('Telegram Trigger').first().json.message.from.id, userMessage: currentMessage } }];"
+        "jsCode": "const items = $input.all();\nconst currentMessage = $('Telegram Trigger').first().json.message.text;\n\n// Build messages array from history, handling empty results gracefully\nconst messages = [];\n\n// Filter to only valid conversation rows (skip empty/null results from 0-row queries)\nconst history = items\n  .map(item => item.json)\n  .filter(h => h && h.role && h.content);\n\n// Add history in chronological order (DB returns DESC, so reverse)\nhistory.reverse().forEach(h => {\n  messages.push({ role: h.role, content: h.content });\n});\n\n// Always add current user message\nmessages.push({ role: 'user', content: currentMessage });\n\nconst now = new Date().toISOString();\n\nconst body = {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1000,\n  system: `You are Rosa, a personal assistant for Vlado. You help manage daily tasks, summarize emails and calendar, monitor home network, and handle personal productivity. Today is ${now}. Always respond concisely. When you identify an action (create task, update task, set reminder), return a JSON object with fields: intent, reply, action. For general conversation just return: {\"intent\": \"chat\", \"reply\": \"your response\"}.`,\n  messages: messages\n};\n\nreturn [{ json: { body, telegramId: $('Telegram Trigger').first().json.message.from.id, userMessage: currentMessage } }];"
       },
       "id": "build-claude-request",
       "name": "Build Claude Request",
@@ -371,6 +375,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1440, 700],
+      "onError": "continueErrorOutput",
       "credentials": {
         "httpHeaderAuth": {
           "id": "anthropic-api-key",
@@ -437,6 +442,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [2160, 620],
+      "onError": "continueErrorOutput",
       "credentials": {
         "postgres": {
           "id": "postgres-audit-os",
@@ -559,6 +565,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -627,6 +640,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -660,6 +680,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -690,6 +717,13 @@
         [
           {
             "node": "Confirm Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
             "type": "main",
             "index": 0
           }
@@ -781,6 +815,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Send Error Message",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -823,6 +864,13 @@
         [
           {
             "node": "Send Claude Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Error Message",
             "type": "main",
             "index": 0
           }
