@@ -4,14 +4,15 @@
     {
       "parameters": {
         "updates": ["message"],
-        "additionalFields": {}
+        "additionalFields": {},
+        "mode": "polling",
+        "pollInterval": 3
       },
       "id": "telegram-trigger",
       "name": "Telegram Trigger",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
       "position": [220, 300],
-      "webhookId": "marty-party-webhook",
       "credentials": {
         "telegramApi": {
           "id": "telegram-marty-party",
