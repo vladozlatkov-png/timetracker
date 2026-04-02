@@ -37,6 +37,9 @@
           "id": "postgres-audit-os",
           "name": "AuditOS Postgres"
         }
+      },
+      "settings": {
+        "alwaysOutputData": true
       }
     },
     {
@@ -330,6 +333,9 @@
           "id": "postgres-audit-os",
           "name": "AuditOS Postgres"
         }
+      },
+      "settings": {
+        "alwaysOutputData": true
       }
     },
     {
