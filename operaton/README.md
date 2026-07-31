@@ -8,6 +8,12 @@ The Postgres `workflow.*` schema stays the system of record for audit content.
 The reasoning, the alternatives, and the rollout plan are in
 [`docs/architecture.md`](docs/architecture.md) — read that first.
 
+**Resuming in a new session?** Start with
+[`docs/context.md`](docs/context.md) — the standing picture (estate map, live
+engagements, open questions, environment gotchas) — then the dated log in
+[`docs/sessions/`](docs/sessions/) for what happened and why. There is no
+chat-history search in this environment; those files are how continuity works.
+
 > **Status: not yet run against a live engine.** The models and code are
 > statically validated and the database half is verified (see
 > [Verification](#verification)), but nothing here has been executed against a
