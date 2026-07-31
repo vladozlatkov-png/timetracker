@@ -1,0 +1,77 @@
+name: audit-orchestrator
+
+services:
+  # ---------------------------------------------------------------------------
+  # Engine database. Deliberately SEPARATE from the Audit OS `workflow.*`
+  # database: the engine's schema is an implementation detail of Operaton and
+  # must never be mixed with audit records that have a retention obligation.
+  # ---------------------------------------------------------------------------
+  engine-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${ENGINE_DB_NAME:-operaton}
+      POSTGRES_USER: ${ENGINE_DB_USER:-operaton}
+      POSTGRES_PASSWORD: ${ENGINE_DB_PASSWORD:?set ENGINE_DB_PASSWORD in .env}
+    volumes:
+      - engine-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ENGINE_DB_USER:-operaton} -d ${ENGINE_DB_NAME:-operaton}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  operaton:
+    # Pin this to an explicit 2.x tag before anything touches a real engagement.
+    image: operaton/operaton:${OPERATON_VERSION:-latest}
+    depends_on:
+      engine-db:
+        condition: service_healthy
+    environment:
+      DB_DRIVER: org.postgresql.Driver
+      DB_URL: jdbc:postgresql://engine-db:5432/${ENGINE_DB_NAME:-operaton}
+      DB_USERNAME: ${ENGINE_DB_USER:-operaton}
+      DB_PASSWORD: ${ENGINE_DB_PASSWORD:?set ENGINE_DB_PASSWORD in .env}
+      WAIT_FOR: engine-db:5432
+      WAIT_FOR_TIMEOUT: 60
+    ports:
+      # Bound to loopback: the REST API is unauthenticated by default.
+      # See README "Security" before changing this to 0.0.0.0.
+      - "${OPERATON_BIND:-127.0.0.1}:8080:8080"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Workers run under a compose profile so `docker compose up` gives you just
+  # the engine while you are modelling. Start them with:
+  #   docker compose --profile workers up -d
+  # ---------------------------------------------------------------------------
+  external-tasks:
+    profiles: ["workers"]
+    build: ./workers
+    command: ["python", "-m", "external_tasks"]
+    depends_on:
+      - operaton
+    environment:
+      OPERATON_URL: http://operaton:8080/engine-rest
+      AUDIT_OS_DSN: ${AUDIT_OS_DSN:?set AUDIT_OS_DSN in .env}
+      SANCTIONS_API_URL: ${SANCTIONS_API_URL:-}
+      AUDIT_STEP_DISPATCH_URL: ${AUDIT_STEP_DISPATCH_URL:-}
+      PBC_CHASE_WEBHOOK: ${PBC_CHASE_WEBHOOK:-}
+      ISSUE_REPORT_WEBHOOK: ${ISSUE_REPORT_WEBHOOK:-}
+      WORKER_ID: ${WORKER_ID:-external-tasks-1}
+    restart: unless-stopped
+
+  mirror:
+    profiles: ["workers"]
+    build: ./workers
+    command: ["python", "-m", "mirror"]
+    depends_on:
+      - operaton
+    environment:
+      OPERATON_URL: http://operaton:8080/engine-rest
+      AUDIT_OS_DSN: ${AUDIT_OS_DSN:?set AUDIT_OS_DSN in .env}
+      MIRROR_INTERVAL_SECONDS: ${MIRROR_INTERVAL_SECONDS:-60}
+    restart: unless-stopped
+
+volumes:
+  engine-db-data:

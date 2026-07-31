@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xmlns:operaton="http://operaton.org/schema/1.0/bpmn"
+                  id="Definitions_audit_step"
+                  targetNamespace="http://audit-partners.eu/bpmn">
+
+  <!--
+    One audit programme step. Called once per entry in `fieldworkSteps` by the
+    multi-instance call activity in statutory-audit.bpmn.
+
+    Deliberately generic: the step's identity (fw-wp:revenue, fw-je, ...) arrives
+    as the `auditStep` variable. Versioning this separately means the step
+    lifecycle can change without migrating in-flight engagement instances.
+  -->
+  <bpmn:process id="audit-step" name="Audit step" isExecutable="true"
+                operaton:historyTimeToLive="P10Y">
+
+    <bpmn:startEvent id="StartEvent_StepStart" name="Step scheduled">
+      <bpmn:outgoing>SF_1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <bpmn:serviceTask id="Task_RunStep" name="Execute step"
+                      operaton:type="external" operaton:topic="run-audit-step">
+      <bpmn:incoming>SF_1</bpmn:incoming>
+      <bpmn:outgoing>SF_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ReviewRequired" name="Review required?" default="SF_4">
+      <bpmn:incoming>SF_2</bpmn:incoming>
+      <bpmn:outgoing>SF_3</bpmn:outgoing>
+      <bpmn:outgoing>SF_4</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:userTask id="Task_ReviewWorkpaper" name="Review workpaper"
+                   operaton:candidateGroups="reviewers">
+      <bpmn:extensionElements>
+        <operaton:formData>
+          <operaton:formField id="reviewOutcome" label="Review outcome" type="enum">
+            <operaton:validation>
+              <operaton:constraint name="required" />
+            </operaton:validation>
+            <operaton:value id="concluded" name="Concluded — evidence sufficient" />
+            <operaton:value id="rework" name="Rework required" />
+          </operaton:formField>
+          <operaton:formField id="reviewNote" label="Review notes" type="string" />
+        </operaton:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>SF_3</bpmn:incoming>
+      <bpmn:outgoing>SF_5</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <bpmn:exclusiveGateway id="Gateway_ReviewJoin">
+      <bpmn:incoming>SF_4</bpmn:incoming>
+      <bpmn:incoming>SF_5</bpmn:incoming>
+      <bpmn:outgoing>SF_6</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <bpmn:endEvent id="EndEvent_StepDone" name="Step done">
+      <bpmn:incoming>SF_6</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:sequenceFlow id="SF_1" sourceRef="StartEvent_StepStart" targetRef="Task_RunStep" />
+    <bpmn:sequenceFlow id="SF_2" sourceRef="Task_RunStep" targetRef="Gateway_ReviewRequired" />
+    <bpmn:sequenceFlow id="SF_3" name="yes" sourceRef="Gateway_ReviewRequired" targetRef="Task_ReviewWorkpaper">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${stepRequiresReview}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="SF_4" name="no" sourceRef="Gateway_ReviewRequired" targetRef="Gateway_ReviewJoin" />
+    <bpmn:sequenceFlow id="SF_5" sourceRef="Task_ReviewWorkpaper" targetRef="Gateway_ReviewJoin" />
+    <bpmn:sequenceFlow id="SF_6" sourceRef="Gateway_ReviewJoin" targetRef="EndEvent_StepDone" />
+
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_audit_step">
+    <bpmndi:BPMNPlane id="BPMNPlane_audit_step" bpmnElement="audit-step">
+
+      <bpmndi:BPMNShape id="Shape_StartEvent_StepStart" bpmnElement="StartEvent_StepStart">
+        <dc:Bounds x="152" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="140" y="205" width="61" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_RunStep" bpmnElement="Task_RunStep">
+        <dc:Bounds x="238" y="140" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ReviewRequired" bpmnElement="Gateway_ReviewRequired" isMarkerVisible="true">
+        <dc:Bounds x="388" y="155" width="50" height="50" />
+        <bpmndi:BPMNLabel><dc:Bounds x="375" y="118" width="77" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Task_ReviewWorkpaper" bpmnElement="Task_ReviewWorkpaper">
+        <dc:Bounds x="488" y="140" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_Gateway_ReviewJoin" bpmnElement="Gateway_ReviewJoin" isMarkerVisible="true">
+        <dc:Bounds x="638" y="155" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_EndEvent_StepDone" bpmnElement="EndEvent_StepDone">
+        <dc:Bounds x="738" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel><dc:Bounds x="732" y="205" width="49" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Edge_SF_1" bpmnElement="SF_1">
+        <di:waypoint x="188" y="180" /><di:waypoint x="238" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SF_2" bpmnElement="SF_2">
+        <di:waypoint x="338" y="180" /><di:waypoint x="388" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SF_3" bpmnElement="SF_3">
+        <di:waypoint x="438" y="180" /><di:waypoint x="488" y="180" />
+        <bpmndi:BPMNLabel><dc:Bounds x="454" y="162" width="19" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SF_4" bpmnElement="SF_4">
+        <di:waypoint x="413" y="205" /><di:waypoint x="413" y="260" />
+        <di:waypoint x="663" y="260" /><di:waypoint x="663" y="205" />
+        <bpmndi:BPMNLabel><dc:Bounds x="420" y="220" width="15" height="14" /></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SF_5" bpmnElement="SF_5">
+        <di:waypoint x="588" y="180" /><di:waypoint x="638" y="180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_SF_6" bpmnElement="SF_6">
+        <di:waypoint x="688" y="180" /><di:waypoint x="738" y="180" />
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
