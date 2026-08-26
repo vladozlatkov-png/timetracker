@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nine Questions Before Building</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<script id="tt-state" type="application/json">{}</script>
+
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0}
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --paper:      #E9EEE4;
+    --panel:      #F4F7F0;
+    --field:      #FCFDFB;
+    --panel-2:    #DFE6D8;
+    --ink:        #161B14;
+    --ink-2:      #5A6553;
+    --ink-3:      #808B79;
+    --rule:       #C6D0BC;
+    --rule-soft:  #D8E0D0;
+    --pencil:     #A83527;
+    --xref:       #2E5A85;
+    --ok:         #3F6B44;
+
+    --f-display: "Zilla Slab", Georgia, "Times New Roman", serif;
+    --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #11150F;
+      --panel:     #191E16;
+      --field:     #10140E;
+      --panel-2:   #232A1F;
+      --ink:       #E4E9DD;
+      --ink-2:     #9BA694;
+      --ink-3:     #77826F;
+      --rule:      #2E3728;
+      --rule-soft: #242C1F;
+      --pencil:    #E0705E;
+      --xref:      #7FAFDA;
+      --ok:        #7FB587;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:     #11150F;
+    --panel:     #191E16;
+    --field:     #10140E;
+    --panel-2:   #232A1F;
+    --ink:       #E4E9DD;
+    --ink-2:     #9BA694;
+    --ink-3:     #77826F;
+    --rule:      #2E3728;
+    --rule-soft: #242C1F;
+    --pencil:    #E0705E;
+    --xref:      #7FAFDA;
+    --ok:        #7FB587;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 20px 140px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  /* ---------------- masthead ---------------- */
+
+  header.top {
+    padding: 52px 0 24px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 18px;
+  }
+  .eyebrow b { color: var(--pencil); font-weight: 500; }
+
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 6vw, 3.4rem);
+    line-height: 1.03;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  .deck {
+    font-family: var(--f-display);
+    font-style: italic;
+    font-size: clamp(1rem, 2.1vw, 1.2rem);
+    color: var(--ink-2);
+    max-width: 56ch;
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 26px;
+    margin-top: 22px;
+  }
+  .meta-row label {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .meta-row input::placeholder { color: var(--ink-3); opacity: .75; }
+  .meta-row input {
+    font-family: var(--f-mono);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 5px 9px;
+    margin-left: 8px;
+  }
+
+  /* ---------------- progress ---------------- */
+
+  .progress {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--paper);
+    padding: 12px 0 11px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .bar {
+    flex: 1;
+    height: 3px;
+    background: var(--rule-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .bar i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--pencil);
+    transition: width .25s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+  #count { color: var(--ink); white-space: nowrap; }
+
+  /* ---------------- sections ---------------- */
+
+  section.group { padding: 40px 0 4px; }
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .group-ref {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .12em;
+    color: var(--pencil);
+  }
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    line-height: 1.15;
+    margin: 0;
+    letter-spacing: -.01em;
+  }
+  .group-sub {
+    color: var(--ink-2);
+    font-size: 15px;
+    margin: 0 0 20px;
+    max-width: 62ch;
+  }
+
+  /* ---------------- question card ---------------- */
+
+  .q {
+    background: var(--panel);
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--rule);
+    padding: 20px 22px 18px;
+    margin-bottom: 14px;
+  }
+  .q.answered { border-left-color: var(--ok); }
+
+  .q-top {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .q-n {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    flex: none;
+  }
+  .q.answered .q-n { color: var(--ok); }
+  .q-t {
+    font-family: var(--f-display);
+    font-size: 1.16rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .q-why {
+    font-size: 14px;
+    color: var(--ink-2);
+    margin: 0 0 16px 26px;
+    max-width: 64ch;
+  }
+  .q-why b {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  .q-body { margin-left: 26px; }
+
+  /* choices */
+
+  .choices { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+  .choices.row { flex-direction: row; flex-wrap: wrap; gap: 8px 10px; }
+
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--field);
+    border: 1px solid var(--rule-soft);
+    border-radius: 2px;
+    padding: 9px 13px;
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .choices.row .choice { flex: 0 1 auto; }
+  .choice:hover { border-color: var(--rule); }
+  .choice input { accent-color: var(--pencil); margin: 3px 0 0; flex: none; }
+  .choice:has(input:checked) {
+    border-color: var(--pencil);
+    background: var(--panel-2);
+  }
+  .choice input:focus-visible { outline: 2px solid var(--pencil); outline-offset: 3px; }
+  .choice .c-note { display: block; color: var(--ink-2); font-size: 13px; margin-top: 1px; }
+
+  /* free text */
+
+  .fl {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: block;
+    margin-bottom: 6px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 62px;
+    resize: vertical;
+    font-family: var(--f-body);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 10px 12px;
+    overflow: hidden;
+  }
+  textarea:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--pencil);
+    outline-offset: 2px;
+  }
+  textarea::placeholder { color: var(--ink-3); }
+
+  .times { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-bottom: 14px; }
+  .times label { font-family: var(--f-mono); font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); }
+  .times input[type="time"] {
+    font-family: var(--f-mono);
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 6px 9px;
+    margin-left: 8px;
+  }
+
+  /* print-only answer mirrors */
+  .ans, .print-only { display: none; }
+
+  /* ---------------- action bar ---------------- */
+
+  .actions {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 10;
+    background: var(--panel);
+    border-top: 1px solid var(--rule);
+    padding: 11px 20px;
+  }
+  .actions-in {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  button {
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--field);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--ink-3); }
+  button:focus-visible { outline: 2px solid var(--pencil); outline-offset: 2px; }
+  button.primary {
+    background: var(--pencil);
+    border-color: var(--pencil);
+    color: #FCFDFB;
+    font-weight: 500;
+  }
+  :root[data-theme="dark"] button.primary,
+  :root:not([data-theme="light"]) button.primary { color: #11150F; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) button.primary { color: #FCFDFB; }
+  }
+  button.ghost { color: var(--ink-3); }
+  button[hidden] { display: none; }
+
+  #status {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: var(--ink-3);
+    margin-left: auto;
+    text-align: right;
+  }
+  #status.good { color: var(--ok); }
+  #status.bad  { color: var(--pencil); }
+
+  footer.foot {
+    margin-top: 44px;
+    padding-top: 20px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .05em;
+    color: var(--ink-3);
+    line-height: 1.7;
+  }
+
+  /* ---------------- print ---------------- */
+
+  @media print {
+    @page { size: A4; margin: 14mm 15mm; }
+    :root {
+      --paper: #FFFFFF; --panel: #FFFFFF; --panel-2: #FFFFFF; --field: #FFFFFF;
+      --ink: #000000; --ink-2: #333333; --ink-3: #555555;
+      --rule: #999999; --rule-soft: #CCCCCC; --pencil: #8A2B20; --ok: #000000;
+    }
+    body { padding: 0; font-size: 10pt; line-height: 1.4; background: #fff; }
+    .wrap { max-width: none; }
+    header.top { padding: 0 0 8pt; border-bottom-width: 1.5pt; }
+    h1 { font-size: 21pt; }
+    .deck { font-size: 10pt; }
+    .progress, .actions, .q-why, button { display: none !important; }
+    .meta-row input { border: 0; border-bottom: .5pt solid #999; padding: 0 4pt; }
+    section.group { padding: 12pt 0 0; break-inside: auto; }
+    h2 { font-size: 13pt; }
+    .group-sub { display: none; }
+    .q {
+      border: 0;
+      border-top: .5pt solid #CCC;
+      border-left: 0;
+      padding: 7pt 0 5pt;
+      margin: 0;
+      break-inside: avoid;
+      background: #fff;
+    }
+    .q-t { font-size: 11pt; }
+    .q-body { margin-left: 22pt; }
+    .choices, .times, textarea, .fl { display: none !important; }
+    .ans {
+      display: block;
+      font-size: 10pt;
+      line-height: 1.45;
+      color: #000;
+      white-space: pre-wrap;
+      border-left: 1.5pt solid #8A2B20;
+      padding-left: 8pt;
+      margin-left: 22pt;
+    }
+    .ans:empty::before {
+      content: "— not answered —";
+      color: #777;
+      font-style: italic;
+    }
+    .print-only { display: block; }
+    footer.foot { border-top-width: 1.5pt; font-size: 8pt; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div class="eyebrow">
+      Realization · pre-build decisions · <b>Easy Ventures EOOD</b>
+    </div>
+    <h1>Nine Questions Before Building</h1>
+    <p class="deck">Each answer changes the schema, the maths, or a rule the app has to enforce. Answering them now is cheaper than answering them in a migration.</p>
+    <div class="meta-row">
+      <label>Answered by <input type="text" name="meta_by" data-q="0" placeholder="V. Zlatkov" autocomplete="off"></label>
+      <label>Date <input type="text" name="meta_date" data-q="0" placeholder="26 Aug 2026" autocomplete="off"></label>
+    </div>
+  </header>
+
+  <div class="progress">
+    <span id="count">0 of 9 answered</span>
+    <span class="bar"><i id="barfill"></i></span>
+    <span id="autosave">Draft saved locally</span>
+  </div>
+
+  <!-- ===================== A ===================== -->
+
+  <section class="group">
+    <div class="group-head">
+      <span class="group-ref">A</span>
+      <h2>Money and billing</h2>
+    </div>
+    <p class="group-sub">These decide what a fee is, and therefore what realization actually divides.</p>
+
+    <div class="q" data-q="1">
+      <div class="q-top">
+        <span class="q-n">A1</span>
+        <h3 class="q-t">What currency are engagement fees in — and do historical contracts mix the two?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> whether <code>fee_currency</code> can be defaulted or has to be carried and converted on every row of the realization view.</p>
+      <div class="q-body">
+        <div class="choices row">
+          <label class="choice"><input type="radio" name="a1" value="EUR only"><span>EUR only</span></label>
+          <label class="choice"><input type="radio" name="a1" value="BGN only"><span>BGN only</span></label>
+          <label class="choice"><input type="radio" name="a1" value="Mixed — both appear"><span>Mixed — both appear</span></label>
+        </div>
+        <label class="fl" for="a1n">Notes — conversion rate to use, cut-over date, anything historical</label>
+        <textarea id="a1n" name="a1_note" placeholder="e.g. contracts before 2026 in BGN at the fixed rate; everything after in EUR"></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="2">
+      <div class="q-top">
+        <span class="q-n">A2</span>
+        <h3 class="q-t">Are engagements fixed-fee only, or are some time-and-materials?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> for a fixed fee, realization is fee ÷ hours. For T&amp;M the fee <em>is</em> hours × rate, so realization is meaningless and the view must show budget variance instead. If both exist, the stream needs a billing model.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="a2" value="All fixed-fee"><span>All fixed-fee<span class="c-note">Simplest — one formula.</span></span></label>
+          <label class="choice"><input type="radio" name="a2" value="Mostly fixed, occasional T&M"><span>Mostly fixed, occasional time-and-materials<span class="c-note">Needs a billing-model column, defaulted to fixed.</span></span></label>
+          <label class="choice"><input type="radio" name="a2" value="Genuinely mixed"><span>Genuinely mixed<span class="c-note">Both views built from day one.</span></span></label>
+        </div>
+        <label class="fl" for="a2n">Notes — which engagements are the exceptions</label>
+        <textarea id="a2n" name="a2_note" placeholder="e.g. Global Exchange is T&M; everything else fixed"></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="3">
+      <div class="q-top">
+        <span class="q-n">A3</span>
+        <h3 class="q-t">Can an internal stream ever be billable — development done for a client's benefit that is chargeable?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> whether <code>kind='internal'</code> can hard-force <code>billable=false</code>, or whether billability has to stay a per-entry decision that the picker must surface.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="a3" value="Never — internal is always non-billable"><span>Never — internal is always non-billable<span class="c-note">Safest. The app can enforce it and mis-taps become impossible.</span></span></label>
+          <label class="choice"><input type="radio" name="a3" value="Sometimes — needs a per-entry billable flag"><span>Sometimes — needs a per-entry billable flag<span class="c-note">More flexible, but every internal tap now carries a billable decision.</span></span></label>
+        </div>
+        <label class="fl" for="a3n">Notes</label>
+        <textarea id="a3n" name="a3_note" placeholder="e.g. Audit OS work is never billable, but tooling built for a specific client engagement might be"></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== B ===================== -->
+
+  <section class="group">
+    <div class="group-head">
+      <span class="group-ref">B</span>
+      <h2>Scope of tracking</h2>
+    </div>
+    <p class="group-sub">These decide which rows exist at all, and how granular they are.</p>
+
+    <div class="q" data-q="4">
+      <div class="q-top">
+        <span class="q-n">B1</span>
+        <h3 class="q-t">Contractor hours too, or only your own?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> whether <code>time_entry</code> needs a person dimension and cost rates. Realization computed on your hours alone is wrong the moment someone else bills to the engagement.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="b1" value="Only mine"><span>Only mine<span class="c-note">No person column. Simplest, and honest if you work the engagements alone.</span></span></label>
+          <label class="choice"><input type="radio" name="b1" value="Mine now, contractors later"><span>Mine now, contractors later<span class="c-note">Add a nullable person column now so the migration is free later.</span></span></label>
+          <label class="choice"><input type="radio" name="b1" value="Mine and contractors from day one"><span>Mine and contractors from day one<span class="c-note">Needs cost rates per person and a second way to get hours in.</span></span></label>
+        </div>
+        <label class="fl" for="b1n">Notes — who else books time, and how they would record it</label>
+        <textarea id="b1n" name="b1_note" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="5">
+      <div class="q-top">
+        <span class="q-n">B2</span>
+        <h3 class="q-t">Does an entry ever need to attach to a specific Notion task, or is stream-level enough for now?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> whether the Notion write-back can roll up to the engagement, or has to resolve individual task rows — and whether the picker needs a second level under each engagement.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="b2" value="Stream-level is enough"><span>Stream-level is enough<span class="c-note">One tap to start. Notion <code>Actual Hours</code> gets an engagement total.</span></span></label>
+          <label class="choice"><input type="radio" name="b2" value="Task-level needed"><span>Task-level needed<span class="c-note">Truer estimate-vs-actual per task, at the cost of a second choice per timer.</span></span></label>
+          <label class="choice"><input type="radio" name="b2" value="Stream-level now, task-level optional later"><span>Stream-level now, optional task attach later<span class="c-note">Nullable <code>task_notion_id</code> from the start; the UI can come later.</span></span></label>
+        </div>
+        <label class="fl" for="b2n">Notes</label>
+        <textarea id="b2n" name="b2_note" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="6">
+      <div class="q-top">
+        <span class="q-n">B3</span>
+        <h3 class="q-t">Which internal and admin streams do you actually want on day one?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> the seed data, and how coarse your utilization split is. Too few and everything lands in one bucket; too many and you hesitate at the picker. Edit the list below.</p>
+      <div class="q-body">
+        <label class="fl" for="b3n">One per line — <code>CODE · kind · name</code></label>
+        <textarea id="b3n" name="b3_note" rows="7" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== C ===================== -->
+
+  <section class="group">
+    <div class="group-head">
+      <span class="group-ref">C</span>
+      <h2>Data quality rules</h2>
+    </div>
+    <p class="group-sub">These decide how the app behaves when the record is imperfect — which, by your own account, is most of the time.</p>
+
+    <div class="q" data-q="7">
+      <div class="q-top">
+        <span class="q-n">C1</span>
+        <h3 class="q-t">What are the working-day boundaries for gap detection, and do weekends differ?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> what counts as unaccounted time in the Day view. Set them too wide and every evening reads as a gap; too narrow and real early or late work is invisible.</p>
+      <div class="q-body">
+        <div class="times">
+          <label>Day starts <input type="time" name="c1_from" data-q="7"></label>
+          <label>Day ends <input type="time" name="c1_to" data-q="7"></label>
+        </div>
+        <div class="choices row">
+          <label class="choice"><input type="radio" name="c1" value="Weekends the same"><span>Weekends the same</span></label>
+          <label class="choice"><input type="radio" name="c1" value="Weekends excluded from gap detection"><span>Weekends excluded</span></label>
+          <label class="choice"><input type="radio" name="c1" value="Weekends use a narrower window"><span>Weekends narrower</span></label>
+        </div>
+        <label class="fl" for="c1n">Notes — weekend window if different, travel days, client-site days</label>
+        <textarea id="c1n" name="c1_note" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="8">
+      <div class="q-top">
+        <span class="q-n">C2</span>
+        <h3 class="q-t">Is reconstructed time acceptable as evidence in your own client files, or must the export be able to exclude it?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> whether the timesheet export needs a filter and a second set of totals. This is the one question with a professional-standards answer rather than a preference — worth being conservative.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="c2" value="Acceptable if clearly labelled"><span>Acceptable if clearly labelled<span class="c-note">Export shows timed and reconstructed side by side.</span></span></label>
+          <label class="choice"><input type="radio" name="c2" value="Export must be able to exclude it"><span>Export must be able to exclude it<span class="c-note">Two totals, and a filter that defaults to timed-only for client files.</span></span></label>
+          <label class="choice"><input type="radio" name="c2" value="Not sure — build the filter anyway"><span>Not sure — build the filter anyway<span class="c-note">Cheap now, expensive to retrofit. A reasonable default.</span></span></label>
+        </div>
+        <label class="fl" for="c2n">Notes</label>
+        <textarea id="c2n" name="c2_note" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+
+    <div class="q" data-q="9">
+      <div class="q-top">
+        <span class="q-n">C3</span>
+        <h3 class="q-t">How far back should backfill be allowed without a hard block?</h3>
+      </div>
+      <p class="q-why"><b>Changes —</b> the confirmation threshold on backdated entries. A hard block prevents accidents; it also prevents entering the week you spent at a client site with no phone.</p>
+      <div class="q-body">
+        <div class="choices">
+          <label class="choice"><input type="radio" name="c3" value="7 days, then blocked"><span>7 days, then blocked</span></label>
+          <label class="choice"><input type="radio" name="c3" value="30 days, then blocked"><span>30 days, then blocked</span></label>
+          <label class="choice"><input type="radio" name="c3" value="Unlimited, with confirmation beyond a week"><span>Unlimited, with confirmation beyond a week<span class="c-note">Nothing is ever unrecordable; the friction just rises.</span></span></label>
+        </div>
+        <label class="fl" for="c3n">Notes</label>
+        <textarea id="c3n" name="c3_note" placeholder=""></textarea>
+        <div class="ans"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Answers feed section 13 of <span class="print-only"></span><code>docs/realization-build-prompt.md</code> in the timetracker repository.<br>
+    Nothing here is sent anywhere — the draft is stored in this browser until you save, download or print it.
+  </footer>
+
+</div>
+
+<div class="actions">
+  <div class="actions-in">
+    <button type="button" class="primary" id="btn-save" hidden>Save answers</button>
+    <button type="button" id="btn-download">Download static copy</button>
+    <button type="button" id="btn-print">Print / Save as PDF</button>
+    <button type="button" id="btn-copy">Copy for the agent</button>
+    <button type="button" class="ghost" id="btn-clear">Clear</button>
+    <span id="status"></span>
+  </div>
+</div>
+
+<script>
+/* Capture the pristine document source BEFORE any values are written into it.
+   Saved copies are generated from this template with a fresh state block —
+   the live DOM is never serialized. */
+var TEMPLATE = '<!doctype html>\n' + document.documentElement.outerHTML;
+
+(function () {
+  'use strict';
+
+  var LS_KEY = 'realization_questions_v1';
+  var Q_TOTAL = 9;
+
+  var DEFAULT_B3 = [
+    'DEV-AUDITOS · internal · Audit OS / ERPNext',
+    'DEV-REAL · internal · Realization app',
+    'DEV-HOMELAB · internal · Home lab & infrastructure',
+    'EV-ADMIN · admin · Easy Ventures administration, banking, filings',
+    'BD · admin · Business development, leads, proposals'
+  ].join('\n');
+
+  var LABELS = {
+    a1: 'A1 · Fee currency',
+    a2: 'A2 · Fixed-fee or time-and-materials',
+    a3: 'A3 · Can internal work be billable',
+    b1: 'B1 · Contractor hours',
+    b2: 'B2 · Task-level or stream-level',
+    b3: 'B3 · Internal and admin streams',
+    c1: 'C1 · Working-day boundaries',
+    c2: 'C2 · Reconstructed time as evidence',
+    c3: 'C3 · Backfill horizon'
+  };
+  var ORDER = ['a1', 'a2', 'a3', 'b1', 'b2', 'b3', 'c1', 'c2', 'c3'];
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  var statusEl = $('#status');
+  var statusTimer;
+  function say(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = kind || '';
+    clearTimeout(statusTimer);
+    if (msg) statusTimer = setTimeout(function () { statusEl.textContent = ''; statusEl.className = ''; }, 4000);
+  }
+
+  /* ---------- state ---------- */
+
+  function readState() {
+    var el = document.getElementById('tt-state');
+    try { return JSON.parse(el.textContent || '{}') || {}; } catch (e) { return {}; }
+  }
+
+  function collect() {
+    var s = {};
+    $$('input[type="radio"]').forEach(function (r) { if (r.checked) s[r.name] = r.value; });
+    $$('textarea, input[type="text"], input[type="time"]').forEach(function (f) {
+      if (f.value) s[f.name] = f.value;
+    });
+    return s;
+  }
+
+  function apply(s) {
+    Object.keys(s || {}).forEach(function (k) {
+      var radios = $$('input[type="radio"][name="' + k + '"]');
+      if (radios.length) {
+        radios.forEach(function (r) { r.checked = (r.value === s[k]); });
+        return;
+      }
+      var f = document.querySelector('[name="' + k + '"]');
+      if (f) f.value = s[k];
+    });
+  }
+
+  /* ---------- derived UI ---------- */
+
+  function autosize(t) {
+    t.style.height = 'auto';
+    t.style.height = (t.scrollHeight + 2) + 'px';
+  }
+
+  function answerText(q) {
+    var parts = [];
+    var chosen = $$('input[type="radio"]:checked', q).map(function (r) { return r.value; });
+    if (chosen.length) parts.push(chosen.join(' · '));
+    var from = $('input[name$="_from"]', q);
+    var to = $('input[name$="_to"]', q);
+    if (from && from.value && to && to.value) parts.unshift(from.value + '–' + to.value);
+    var note = $('textarea', q);
+    if (note && note.value.trim() && note.value.trim() !== DEFAULT_B3) parts.push(note.value.trim());
+    return parts.join('\n');
+  }
+
+  function refresh() {
+    var done = 0;
+    $$('.q').forEach(function (q) {
+      var txt = answerText(q);
+      var mirror = $('.ans', q);
+      if (mirror) mirror.textContent = txt;
+      var answered = txt.length > 0;
+      q.classList.toggle('answered', answered);
+      if (answered) done++;
+    });
+    $('#count').textContent = done + ' of ' + Q_TOTAL + ' answered';
+    $('#barfill').style.width = Math.round(done / Q_TOTAL * 100) + '%';
+    return done;
+  }
+
+  function persistLocal() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(collect())); } catch (e) {}
+  }
+
+  /* ---------- markdown ---------- */
+
+  function markdown() {
+    var s = collect();
+    var by = s.meta_by || '';
+    var date = s.meta_date || '';
+    var out = ['## 13. Answers — pre-build decisions', ''];
+    if (by || date) out.push('_Answered by ' + (by || '—') + (date ? ', ' + date : '') + '._', '');
+    ORDER.forEach(function (k) {
+      out.push('**' + LABELS[k] + '**', '');
+      var lines = [];
+      if (k === 'c1' && (s.c1_from || s.c1_to)) {
+        lines.push('Working day: ' + (s.c1_from || '?') + '–' + (s.c1_to || '?'));
+      }
+      if (s[k]) lines.push(s[k]);
+      if (s[k + '_note']) lines.push(s[k + '_note']);
+      out.push(lines.length ? lines.join('\n\n') : '_Not answered._', '');
+    });
+    return out.join('\n');
+  }
+
+  /* ---------- building a saved copy ---------- */
+
+  function buildDocument() {
+    var json = JSON.stringify(collect()).replace(/</g, '\\u003c');
+    return TEMPLATE.replace(
+      /(<script id="tt-state" type="application\/json">)[\s\S]*?(<\/script>)/,
+      function (_m, open, close) { return open + json + close; }
+    );
+  }
+
+  /* ---------- wiring ---------- */
+
+  var initial = readState();
+  var isSavedCopy = Object.keys(initial).length > 0;
+
+  if (!isSavedCopy) {
+    try {
+      var draft = localStorage.getItem(LS_KEY);
+      if (draft) initial = JSON.parse(draft);
+    } catch (e) {}
+  }
+  if (!initial.b3_note) initial.b3_note = DEFAULT_B3;
+  apply(initial);
+
+  $$('textarea').forEach(autosize);
+  refresh();
+
+  document.addEventListener('input', function (e) {
+    if (e.target.tagName === 'TEXTAREA') autosize(e.target);
+    refresh();
+    persistLocal();
+  });
+  document.addEventListener('change', function () { refresh(); persistLocal(); });
+
+  $('#btn-print').addEventListener('click', function () { window.print(); });
+
+  $('#btn-copy').addEventListener('click', function () {
+    var md = markdown();
+    var done = function (ok) { say(ok ? 'Markdown copied' : 'Copy failed — select the text manually', ok ? 'good' : 'bad'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(md).then(function () { done(true); }, function () { done(false); });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = md;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  });
+
+  $('#btn-clear').addEventListener('click', function () {
+    if (!window.confirm('Clear every answer on this page? The draft in this browser is removed too.')) return;
+    $$('input[type="radio"]').forEach(function (r) { r.checked = false; });
+    $$('textarea, input[type="text"], input[type="time"]').forEach(function (f) { f.value = ''; });
+    $('#b3n').value = DEFAULT_B3;
+    $$('textarea').forEach(autosize);
+    try { localStorage.removeItem(LS_KEY); } catch (e) {}
+    refresh();
+    say('Cleared');
+  });
+
+  /* Download — uses the viewer's file-save capability when published,
+     falls back to an ordinary link when the file is opened from disk. */
+  $('#btn-download').addEventListener('click', function () {
+    var html = buildDocument();
+    var name = 'realization-questions-answered.html';
+    if (window.claude && window.claude.use) {
+      window.claude.use('downloads').then(function (d) {
+        if (!d) return legacyDownload(html, name);
+        d.save({ filename: name, data: html }).then(
+          function () { say('Saved', 'good'); },
+          function () { say('Save declined', 'bad'); }
+        );
+      }, function () { legacyDownload(html, name); });
+    } else {
+      legacyDownload(html, name);
+    }
+  });
+
+  function legacyDownload(html, name) {
+    try {
+      var blob = new Blob([html], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      say('Downloaded', 'good');
+    } catch (e) {
+      say('Download blocked here — use Copy or Print', 'bad');
+    }
+  }
+
+  /* Save — republishes this page with the answers baked in, so the URL
+     itself becomes the stored record. Only present when published. */
+  var saveBtn = $('#btn-save');
+  if (window.claude && window.claude.use) {
+    window.claude.use('artifact').then(function (a) {
+      if (!a) return;
+      saveBtn.hidden = false;
+      saveBtn.addEventListener('click', function () {
+        saveBtn.disabled = true;
+        say('Saving…');
+        a.publish(buildDocument()).then(
+          function () { say('Saved to this page', 'good'); saveBtn.disabled = false; },
+          function (err) {
+            saveBtn.disabled = false;
+            var code = err && err.code;
+            if (code === 'conflict') say('Someone saved first — reloading', 'bad');
+            else if (code === 'not_granted' || code === 'not_writer') say('Read-only here — use Download', 'bad');
+            else say('Save failed — use Download', 'bad');
+          }
+        );
+      });
+    }, function () {});
+  }
+
+  if (isSavedCopy) $('#autosave').textContent = 'Saved copy';
+})();
+</script>
+
+</body>
+</html>
