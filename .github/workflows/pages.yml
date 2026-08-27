@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - cursor/realization-time-tracking-38a0
   workflow_dispatch:
 
 permissions:
