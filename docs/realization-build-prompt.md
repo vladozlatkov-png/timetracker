@@ -120,6 +120,9 @@ All of this is already running and must not be re-hosted:
 - **Grafana** and **Metabase** — already pointed at that Postgres. Prefer these over writing chart
   code, unless the view belongs inside the PWA.
 - **Notion** — the "Audit OS" workspace, the current system of record for engagements and tasks.
+- **ERPNext 15.108.3** on `frappe-lxc` (CT100), live since 2026-05-24, tailnet-reachable. It owns
+  the books, and most of this project's back half already exists inside it. **Read §14 before
+  designing the schema or the sync** — it changes what you should and should not build.
 - Bot lane rule he set himself and wants respected: **Aegis** handles business data (Notion,
   Postgres, audit work); **Marty Party** handles the house (Home Assistant, LAN, devices). This
   project is squarely Aegis. Marty must not touch it.
@@ -577,6 +580,10 @@ Each step must be independently shippable and useful the day it lands.
 6. **One-touch entry points.** Deep links, Shortcuts, widgets, Siri, the end-of-day nudge.
    *One session.*
 
+A seventh step — pushing billable time into ERPNext as draft Timesheets — is specified in §14. It
+is **gated on the owner's entity ruling** (AFBC vs Easy Ventures) and must not be started before
+that lands. Everything in steps 1–6 is useful without it.
+
 ## 11. Constraints
 
 - **No framework, no build step, no bundler** in the PWA unless you can show the current single-file
@@ -590,8 +597,11 @@ Each step must be independently shippable and useful the day it lands.
 - **No in-place edits of a synced entry, anywhere in the stack.** Corrections supersede, deletions
   void, and both carry a reason. If a code path needs `UPDATE tt.time_entry`, it is the wrong path.
 - **Do not add a login, an account system, or a cloud dependency.** Tailscale is the perimeter.
-- **Do not widen the scope to Audit OS or ERPNext.** That migration is a separate, much larger
-  project; this schema is designed to migrate into it intact later.
+- **Do not widen the scope to the Audit OS / ERPNext migration.** That is a separate, much larger
+  project. Pushing billable time into the existing ERPNext instance (§14) is in scope and gated;
+  migrating the practice onto it is not.
+- **Do not build invoicing, rate cards, or anything resembling a general ledger.** ERPNext owns all
+  of it and already works. `tt.rate` exists and stays unwired.
 - Secrets go in the existing Vaultwarden / n8n credential store. None in the repo, none in
   `index.html`.
 
@@ -651,3 +661,139 @@ for any of them, and do not remove them as dead weight.
 - **`person` on `tt.time_entry`**, defaulted to him. B1 is "only my hours" and the app should be
   built that way — but this turns "a contractor started booking time" from a migration into a
   config change. Drop it if the owner objects.
+
+---
+
+## 14. ERPNext integration
+
+The owner runs a live ERPNext instance and is mid-migration from Notion. This section states what
+ERPNext already provides, what it cannot provide, and how the two systems should divide the work.
+
+### The instance
+
+**ERPNext 15.108.3** plus `erpnext_bulgaria`, on `frappe-lxc` (Proxmox CT100), LAN `192.168.68.77`,
+site `frappe.localhost`, reachable over the tailnet at `https://frappe-lxc.tailc0d1f3.ts.net`.
+Live since 2026-05-24; production mode behind nginx + supervisor, nightly vzdump to the NAS.
+
+It is on the same Tailscale network as the phone, so it is reachable from the PWA on exactly the
+same terms as the Postgres sync endpoint.
+
+**It is not finished.** Its own go-live checklist is blocked on an unresolved entity ruling —
+whether the books belong to AFBC or to Easy Ventures. Timesheets attach to a Company. Writing time
+into the wrong company before that ruling is made is expensive to unwind.
+
+### What ERPNext already does
+
+Most of Realization's back half exists in ERPNext already, and must not be rebuilt:
+
+| Realization concept | ERPNext equivalent |
+|---|---|
+| `tt.client` | **Customer** |
+| `tt.stream`, `kind='client'` | **Project** (with a Customer link) |
+| `tt.stream`, `kind='internal'/'admin'` | **Project** with no Customer |
+| `task_notion_id` | **Task** |
+| `tt.time_entry` | **Timesheet Detail** — a child row of a **Timesheet** |
+| `billable` | `is_billable` (check) |
+| `tt.rate.target_hourly` | **Activity Type** + **Activity Cost** (rate per employee per activity) |
+| effective hourly / billing | `costing_rate`, `billing_rate`, `billing_amount`; **Sales Invoice from Timesheet** |
+| `person` | **Employee** / **User** |
+| the supersede chain | **docstatus** + `amended_from` |
+
+That last row is worth dwelling on. Frappe's submittable-document model is the same design as §6's
+correction chain, arrived at independently: `docstatus` 0 = draft, 1 = submitted, 2 = cancelled; a
+submitted Timesheet is immutable and its billing and costing rates lock on submit; correcting one
+means cancelling it and **amending**, which creates a new document carrying `amended_from` back to
+the cancelled original. Original preserved, correction linked, nothing overwritten. `supersedes_id`
+and `void` are the same idea under different names, which is a good sign for both.
+
+### What ERPNext does not do
+
+Five things, and they are precisely the things Realization exists for:
+
+1. **One-tap capture.** The built-in Timesheet timer opens a dialog demanding Activity Type,
+   Project, Task and Expected Hours *before* it starts counting. That is the opposite of tap-to-start,
+   and it is a desk browser, not a lock screen.
+2. **Offline.** There is no offline queue. A timer you cannot start on a plane or in a client's
+   basement is a timer that does not get started.
+3. **Timed versus reconstructed.** A hand-typed Timesheet row is indistinguishable from one a timer
+   produced. ERPNext has no `confidence` concept, and given C2 this distinction has to survive.
+4. **Gap detection and daily reconciliation.** Nothing resembling the Day view. ERPNext records
+   what you tell it and never asks what is missing.
+5. **Non-work time.** Rest, Eat, Train, Study, Pets have no home in an ERP and should not get one.
+   They are also the denominator of utilization, so they cannot simply be dropped.
+
+Existing mobile options do not close this. **ProjectIT** (a Frappe-based PWA on the marketplace) is
+built around photo check-in/check-out and overtime splits for field workforces — the wrong shape
+for a solo auditor. Do not adopt it.
+
+### The division of work
+
+**Postgres stays the capture ledger. ERPNext becomes a downstream projection of the billable
+subset.** Concretely:
+
+- Every entry — billable, internal, and personal — is written to `tt.time_entry` first, offline,
+  exactly as §7.2 describes. That store must always accept a write.
+- On a schedule, n8n pushes **only** `kind='client'` rows to ERPNext as Timesheets. Internal, admin
+  and personal time never leaves Postgres.
+- ERPNext owns rates, invoicing and the books. **Do not build invoicing.** `tt.rate` stays unwired.
+- `tt.realization` and `tt.utilization` stay in Postgres, because utilization needs the non-billable
+  rows ERPNext will never hold.
+
+The reasons for this direction rather than writing to ERPNext first: the entity ruling is
+unresolved; ERPNext cannot hold most of what the tracker captures, so Postgres is needed either
+way; and Timesheet submission runs validations that *reject* documents, which an offline queue
+cannot tolerate — the queue needs a store that always accepts and reconciles afterwards.
+
+### Integration requirements
+
+These are the constraints the push must satisfy. They come from the v15 `Timesheet` and
+`Timesheet Detail` doctypes.
+
+**Structure.** A time log cannot be posted on its own. `Timesheet Detail` is a child table
+(`time_logs`) of a `Timesheet` parent, which is submittable and named `TS-.YYYY.-`. Batch the push:
+one Timesheet per period (a week is the natural unit), carrying many rows.
+
+**Idempotency — the one that will bite.** Frappe assigns document names from its naming series, so
+the client-generated UUID that makes the offline queue safe has nowhere to live by default. Without
+it, a retried push creates duplicate Timesheets. Add a **Custom Field on Timesheet Detail** — say
+`custom_tt_entry_id` (Data, unique) — carrying `tt.time_entry.id`, and check for existence before
+inserting. Do this before the first push, not after the first duplicate.
+
+**Overlap validation.** On submit, `get_overlap_for()` rejects rows overlapping other *submitted*
+timesheets for the same employee, and `check_internal_overlap()` rejects overlaps within the
+document. §8.4 already forbids overlapping entries; this makes that rule load-bearing rather than
+advisory. Resolve overlaps in Postgres before pushing, or the whole Timesheet fails.
+
+**Mandatory on submit.** `from_time` and `to_time` are required, `hours` must exceed zero, and
+`activity_type` is required once an employee is set. So every client stream needs a mapping to an
+Activity Type. Keep it coarse — one Activity Type per kind of audit work — rather than mirroring
+sub-activities.
+
+**Billing fields.** `billing_hours` defaults to `hours` on a billable row and ERPNext warns when
+billing hours exceed actual hours. Push `is_billable` from `tt.time_entry.billable` and let ERPNext
+derive the rest from Activity Cost; do not compute rates locally and push them.
+
+**Rates lock on submit.** Push as **draft** (`docstatus 0`) and submit only after the owner has
+reviewed the week. Never auto-submit — a submitted Timesheet can only be corrected by cancel and
+amend, and that is a heavier operation than fixing a draft.
+
+**Reconstructed time.** ERPNext has no `confidence` field. Add a second Custom Field
+(`custom_tt_confidence`) or write it into the row's `description`, so a reconstructed hour is still
+identifiable inside the ERP. C2 requires the label to survive; it must not be lost at the boundary.
+
+**Currency.** Timesheet carries `currency` and `exchange_rate`. The system is EUR-only, so set the
+Company currency to EUR and leave the exchange rate at 1. Do not build conversion.
+
+**Transport.** REST at `/api/resource/Timesheet`, authenticated with an API key and secret as an
+`Authorization: token <key>:<secret>` header, over the tailnet hostname. Credentials go in
+Vaultwarden / the n8n credential store, never in the repo. Submit by `PUT`ting `docstatus: 1`.
+
+### One decision this raises for the owner
+
+§7.3 syncs engagements **from Notion**. If ERPNext is to own Customers and Projects — which the
+June 2026 pivot record implies — then the stream master should move there too, and Notion's
+Engagements database becomes a read model rather than the source of truth.
+
+Do not change this unilaterally. Build the sync against Notion as specified, but keep the engagement
+import behind a single adapter function so the source can be swapped without touching the picker,
+the schema or the queue. Then ask the owner, once the entity ruling lands.
