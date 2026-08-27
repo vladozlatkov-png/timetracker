@@ -8,7 +8,7 @@
 ## 1. Who this is for
 
 Vladimir Zlatkov, a registered statutory auditor in Bulgaria, running **Easy Ventures EOOD** from
-Bankya. He works alone with contractors, on fixed-fee statutory audit engagements. He is technical:
+Bankya. He works the engagements himself, on fixed fees. He is technical:
 he runs his own Proxmox host, a Docker fleet, n8n, Grafana, Metabase and Home Assistant behind
 Tailscale, and he writes and reads code. Timezone **Europe/Sofia**. He writes in English and
 Bulgarian; client names appear in both scripts.
@@ -203,6 +203,7 @@ create table tt.time_entry (
   sub            text,                       -- sub-activity, unchanged from today
   stream_id      uuid references tt.stream(id),   -- NULL for personal activities
   task_notion_id text,                       -- optional, when booked to a specific task
+  person         text not null default 'vz', -- hedge only; his hours are the only ones today
   billable       boolean not null default false,
   started_at     timestamptz not null,
   ended_at       timestamptz not null,
@@ -238,12 +239,12 @@ create index on tt.time_entry (stream_id, started_at desc);
 create index on tt.time_entry (activity, started_at desc);
 create index on tt.time_entry (started_at desc);
 
--- Rates, so realization survives a fee renegotiation without rewriting history.
+-- Target rates. Not wired to anything yet: groundwork for the T&M engagements
+-- the owner expects to sign once this system exists. All EUR.
 create table tt.rate (
   id            uuid primary key default gen_random_uuid(),
   stream_id     uuid not null references tt.stream(id),
   target_hourly numeric(10,2) not null,       -- what an hour SHOULD earn
-  currency      text not null default 'EUR',
   valid_from    date not null,
   valid_to      date
 );
@@ -252,9 +253,9 @@ create table tt.rate (
 Plus the two views that are the actual product:
 
 ```sql
--- Realization: client streams only. Am I charging enough?
+-- Realization: fixed-fee client streams only. Am I charging enough?
 create view tt.realization as
-select s.id, s.code, c.name as client, s.fee_amount, s.fee_currency,
+select s.id, s.code, c.name as client, s.fee_amount,
        round(sum(t.duration_s)/3600.0, 2)                                   as hours,
        s.budget_hours,
        round(sum(t.duration_s)/3600.0 / nullif(s.budget_hours,0) * 100, 1)  as burn_pct,
@@ -265,6 +266,7 @@ from tt.stream s
 join tt.client c on c.id = s.client_id
 left join tt.entry_current t on t.stream_id = s.id
 where s.kind = 'client'
+  and s.billing_model = 'fixed'   -- no T&M streams today; excluded rather than mis-reported
 group by s.id, c.name;
 
 -- Utilization: all working time. How much of it reaches an invoice?
@@ -321,8 +323,11 @@ group by 1 order by 1 desc;
 
 ### Seeding streams
 
-Client streams: the six live engagements listed in §5. Internal streams to create on day one, so
-there is somewhere for the work to go — refine the list with the owner:
+Client streams: the six live engagements listed in §5 — all `kind='client'`, `billing_model='fixed'`,
+`fee_currency='EUR'`, fees from the contracts sheet in Drive.
+
+Internal and admin streams, confirmed by the owner, to create on day one so there is somewhere for
+the work to go:
 
 | Code | Kind | Name |
 |---|---|---|
@@ -632,16 +637,17 @@ is the feature most likely to fix his data quality.
 
 Sunday needs no assumption: no detection at all.
 
-### Two cheap hedges worth taking anyway
+### Columns that exist for a future, not for today
 
-Both cost one column and no UI. Drop either if the owner objects; do not build interface for them.
+Three things are in the schema with no UI behind them. That is deliberate. Do not build interface
+for any of them, and do not remove them as dead weight.
 
-- **`person` on `tt.time_entry`**, nullable, defaulted to him. B1 says his hours only and the app
-  should be built that way — but this turns "a contractor started booking time" from a migration
-  into a config change.
-- **`billing_model` on `tt.stream`**, defaulted to `fixed`. Same reasoning for the T&M engagements
-  the owner expects to sign once this system exists.
-
-Note that `tt.rate` already carries `target_hourly` per stream. That is what a T&M engagement will
-eventually bill at, so the groundwork for A2's future is in the schema already — it just is not
-wired to anything yet, and should not be.
+- **`billing_model` on `tt.stream`** — the owner expects to sign time-and-materials engagements
+  once this system exists. Everything seeds as `fixed`, `tt.realization` filters on `fixed`, and
+  the variance view is a later step. Arrival of the first T&M engagement should be a row edit, not
+  a migration.
+- **`tt.rate.target_hourly`** — what a T&M engagement will eventually bill at. Table exists,
+  nothing reads it yet, and nothing should.
+- **`person` on `tt.time_entry`**, defaulted to him. B1 is "only my hours" and the app should be
+  built that way — but this turns "a contractor started booking time" from a migration into a
+  config change. Drop it if the owner objects.
