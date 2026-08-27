@@ -13,87 +13,162 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0f0f0f;
-    --bg2: #1a1a1a;
-    --bg3: #242424;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.14);
-    --text: #f0f0f0;
-    --text2: #888;
-    --text3: #555;
-    --radius: 16px;
-    --radius-sm: 10px;
+    --bg: #0f0f0f; --bg2: #1a1a1a; --bg3: #242424;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+    --text: #f0f0f0; --text2: #888; --text3: #555;
+    --radius: 16px; --radius-sm: 10px;
+    --client: #7F77DD; --internal: #378ADD; --admin: #BA7517;
+    --warn: #D85A30; --ok: #1D9E75; --recon: #EF9F27;
   }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; overflow: hidden; }
-  #app { height: 100dvh; display: flex; flex-direction: column; padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px); gap: 10px; max-width: 480px; margin: 0 auto; }
+  html, body { height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; overflow: hidden; }
+  #app { height: 100dvh; display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top, 12px) 12px env(safe-area-inset-bottom, 12px); gap: 8px;
+    max-width: 480px; margin: 0 auto; width: 100%; }
+  @media (min-width: 900px) {
+    #app { max-width: 1100px; }
+    #view-day.show, #view-real.show, #view-export.show { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; }
+    #view-backfill.ipad-wide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  }
 
-  /* Header */
-  #hdr { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; flex-shrink: 0; }
-  #hdr-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
-  #hdr-clock { font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
-  #hdr-tabs { display: flex; gap: 6px; }
-  #hdr-tabs button { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; }
+  #hdr { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; flex-shrink: 0; gap: 8px; }
+  #hdr-title { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; flex-shrink: 0; }
+  #hdr-tabs { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+  #hdr-tabs button { font-size: 11px; padding: 4px 8px; border-radius: 20px; border: 0.5px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; }
   #hdr-tabs button.active { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 500; }
 
-  /* Timer bar */
-  #tbar { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; min-height: 44px; }
+  #tbar { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 44px; flex-wrap: wrap; }
   #tbar-dot { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; flex-shrink: 0; opacity: 0; }
   #tbar-dot.on { opacity: 1; animation: blink 1.4s ease-in-out infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-  #tbar-text { font-size: 13px; color: var(--text2); flex: 1; }
-  #tbar-stop { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; display: none; }
-  #tbar-stop.show { display: block; }
+  #tbar-text { font-size: 13px; color: var(--text2); flex: 1; min-width: 120px; }
+  #tbar-billable { display: none; font-size: 11px; padding: 3px 8px; border-radius: 12px; border: 0.5px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; }
+  #tbar-billable.show { display: inline-block; }
+  #tbar-billable.on { background: var(--ok); color: #0f0f0f; border-color: transparent; font-weight: 600; }
+  #tbar-stop, #tbar-sync { font-size: 11px; padding: 4px 8px; border-radius: 20px; border: 0.5px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; }
+  #tbar-stop { display: none; } #tbar-stop.show { display: block; }
+  #sync-pill { font-size: 10px; color: var(--text3); white-space: nowrap; }
 
-  /* Main grid view */
   #view-grid { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 10px; }
   #act-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex-shrink: 0; }
-  .abt {
-    position: relative; border: 0.5px solid var(--border); border-radius: var(--radius); cursor: pointer;
+  .abt { position: relative; border: 0.5px solid var(--border); border-radius: var(--radius); cursor: pointer;
     aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 5px; user-select: none; -webkit-user-select: none; touch-action: none; overflow: hidden;
-    transition: transform 0.1s; background: var(--bg2);
-  }
+    transition: transform 0.1s; background: var(--bg2); }
   .abt:active { transform: scale(0.93); }
   .abt.is-active { border-color: rgba(255,255,255,0.3); }
   .abt .abt-fill { position: absolute; inset: 0; opacity: 0.12; }
   .abt .abt-icon { font-size: 22px; line-height: 1; position: relative; z-index: 1; }
   .abt .abt-label { font-size: 11px; font-weight: 500; position: relative; z-index: 1; color: var(--text); }
-  .abt .abt-ring { position: absolute; inset: 0; border-radius: var(--radius); border: 2px solid rgba(255,255,255,0.3); transform: scale(0); transition: transform 0.65s cubic-bezier(0.25,0,0,1); pointer-events: none; }
+  .abt .abt-ring { position: absolute; inset: 0; border-radius: var(--radius); border: 2px solid rgba(255,255,255,0.3);
+    transform: scale(0); transition: transform 0.65s cubic-bezier(0.25,0,0,1); pointer-events: none; }
   .abt.pressing .abt-ring { transform: scale(1); }
 
-  /* Sub layer */
-  #sub-layer { display: none; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  #sub-layer { display: none; background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 12px; overflow-y: auto; flex: 1; }
   #sub-layer.open { display: block; }
   #sub-header { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
   #sub-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-  .chip { padding: 7px 14px; border-radius: 20px; border: 0.5px solid var(--border2); font-size: 13px; cursor: pointer; background: var(--bg3); color: var(--text); transition: background 0.1s; }
+  .chip { padding: 7px 14px; border-radius: 20px; border: 0.5px solid var(--border2); font-size: 13px; cursor: pointer; background: var(--bg3); color: var(--text); }
   .chip.active { background: var(--text); color: var(--bg); border-color: transparent; }
+  .stream-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 12px; border-radius: 12px;
+    border: 0.5px solid var(--border2); background: var(--bg3); cursor: pointer; min-width: 140px; }
+  .stream-chip .sc-code { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; }
+  .stream-chip .sc-name { font-size: 11px; color: var(--text2); }
+  .stream-chip.kind-client { border-left: 3px solid var(--client); }
+  .stream-chip.kind-internal { border-left: 3px solid var(--internal); }
+  .stream-chip.kind-admin { border-left: 3px solid var(--admin); }
+  .stream-divider { width: 100%; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 0 4px; }
 
-  /* Log view */
-  #view-log { flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 6px; }
-  #view-log.show { display: flex; }
+  .view { flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 6px; }
+  .view.show { display: flex; }
   #view-grid.hide { display: none; }
+
   .log-day-label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 0 2px; }
-  .log-entry { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; display: flex; align-items: center; gap: 10px; }
+  .log-entry { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 10px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .log-entry.adjusted { border-color: rgba(239,159,39,0.35); }
   .log-pip { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .log-info { flex: 1; }
+  .log-info { flex: 1; min-width: 0; }
   .log-name { font-size: 13px; font-weight: 500; }
   .log-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-  .log-dur { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
-  #log-empty { font-size: 13px; color: var(--text3); text-align: center; padding: 2rem 0; }
+  .log-dur { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; text-align: right; }
+  .badge { display: inline-block; font-size: 9px; padding: 1px 5px; border-radius: 6px; margin-left: 4px; vertical-align: middle; }
+  .badge-recon { background: rgba(239,159,39,0.2); color: var(--recon); }
+  .badge-adj { background: rgba(55,138,221,0.2); color: var(--internal); }
+  .badge-bill { background: rgba(29,158,117,0.2); color: var(--ok); }
+  .badge-void { background: rgba(216,90,48,0.2); color: var(--warn); }
+  #log-empty, .empty { font-size: 13px; color: var(--text3); text-align: center; padding: 2rem 0; }
 
-  /* Export view */
-  #view-export { flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 10px; }
-  #view-export.show { display: flex; }
+  .toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .tool-btn { font-size: 12px; padding: 6px 10px; border-radius: 10px; border: 0.5px solid var(--border2);
+    background: var(--bg2); color: var(--text); cursor: pointer; }
+  .tool-btn.primary { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 500; }
+
+  .day-summary { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+  .day-summary .big { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .day-summary .lbl { font-size: 11px; color: var(--text2); }
+  .day-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 8px; align-items: center;
+    background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
+  .day-row.gap { border-style: dashed; border-color: rgba(216,90,48,0.45); background: rgba(216,90,48,0.06); cursor: pointer; }
+  .day-row.overlap { border-color: rgba(216,90,48,0.8); background: rgba(216,90,48,0.12); }
+  .day-time { font-size: 11px; color: var(--text2); font-variant-numeric: tabular-nums; }
+
+  .real-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .real-card.worst { border-color: rgba(216,90,48,0.5); }
+  .real-code { font-size: 12px; font-weight: 600; color: var(--client); }
+  .real-client { font-size: 15px; font-weight: 600; margin: 2px 0 8px; }
+  .real-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .real-grid .stat-val { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .real-grid .stat-lbl { font-size: 10px; color: var(--text2); }
+  .util-bar { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; display: flex; margin-top: 8px; }
+  .util-bar span { display: block; height: 100%; }
+
   .exp-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
   .exp-card h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
   .exp-card p { font-size: 12px; color: var(--text2); margin-bottom: 12px; line-height: 1.5; }
-  .exp-btn { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--bg3); color: var(--text); font-size: 13px; cursor: pointer; transition: background 0.1s; }
-  .exp-btn:hover { background: rgba(255,255,255,0.1); }
+  .exp-btn { width: 100%; padding: 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2);
+    background: var(--bg3); color: var(--text); font-size: 13px; cursor: pointer; }
   .exp-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
   .stat-box { background: var(--bg3); border-radius: var(--radius-sm); padding: 10px 12px; }
   .stat-val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .stat-lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* Modal sheets */
+  #modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50;
+    align-items: flex-end; justify-content: center; padding: 12px; }
+  #modal.open { display: flex; }
+  #modal-sheet { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: 16px 16px 12px 12px;
+    width: 100%; max-width: 520px; max-height: 90dvh; overflow-y: auto; padding: 16px; }
+  @media (min-width: 900px) {
+    #modal { align-items: center; }
+    #modal-sheet { max-width: 720px; border-radius: 16px; }
+  }
+  #modal-sheet h2 { font-size: 16px; margin-bottom: 12px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 8px 10px; border-radius: 8px; border: 0.5px solid var(--border2);
+    background: var(--bg3); color: var(--text); font-size: 14px; font-family: inherit; }
+  .field textarea { min-height: 60px; resize: vertical; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .modal-actions button { flex: 1; min-width: 100px; padding: 10px; border-radius: 10px; border: 0.5px solid var(--border2);
+    background: var(--bg3); color: var(--text); font-size: 13px; cursor: pointer; }
+  .modal-actions button.danger { color: var(--warn); }
+  .modal-actions button.primary { background: var(--text); color: var(--bg); border-color: transparent; font-weight: 500; }
+
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(80px);
+    background: var(--bg3); border: 0.5px solid var(--border2); color: var(--text); padding: 10px 16px;
+    border-radius: 12px; font-size: 13px; z-index: 80; transition: transform 0.25s; max-width: 90vw; text-align: center; }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  .confirm-banner { background: rgba(127,119,221,0.15); border: 0.5px solid var(--client); border-radius: var(--radius-sm);
+    padding: 10px 12px; font-size: 13px; display: none; }
+  .confirm-banner.show { display: block; }
 </style>
 </head>
 <body>
@@ -101,19 +176,24 @@
   <div id="hdr">
     <span id="hdr-title">Time Tracker</span>
     <div id="hdr-tabs">
-      <button class="active" onclick="switchTab('grid')">Track</button>
-      <button onclick="switchTab('log')">Log</button>
-      <button onclick="switchTab('export')">Export</button>
+      <button class="active" data-tab="grid" onclick="switchTab('grid')">Track</button>
+      <button data-tab="log" onclick="switchTab('log')">Log</button>
+      <button data-tab="day" onclick="switchTab('day')">Day</button>
+      <button data-tab="real" onclick="switchTab('real')">Real</button>
+      <button data-tab="export" onclick="switchTab('export')">Export</button>
     </div>
   </div>
 
+  <div id="deep-confirm" class="confirm-banner"></div>
+
   <div id="tbar">
     <div id="tbar-dot"></div>
-    <span id="tbar-text">Tap to track · Hold for sub-activity</span>
+    <span id="tbar-text">Tap to track · Hold for picker</span>
+    <button id="tbar-billable" onclick="toggleBillable()" title="Billable this session">Billable</button>
     <button id="tbar-stop" onclick="stopCurrent()">Stop</button>
+    <span id="sync-pill" title="Sync status">sync · —</span>
   </div>
 
-  <!-- GRID VIEW -->
   <div id="view-grid">
     <div id="act-grid"></div>
     <div id="sub-layer">
@@ -122,13 +202,31 @@
     </div>
   </div>
 
-  <!-- LOG VIEW -->
-  <div id="view-log">
-    <div id="log-empty">No entries yet</div>
+  <div id="view-log" class="view">
+    <div class="toolbar">
+      <button class="tool-btn primary" onclick="openBackfill()">+ Quick add</button>
+      <button class="tool-btn" onclick="openMultiBackfill()">Multi-day</button>
+    </div>
+    <div id="log-list"><div class="empty">No entries yet</div></div>
   </div>
 
-  <!-- EXPORT VIEW -->
-  <div id="view-export">
+  <div id="view-day" class="view">
+    <div class="toolbar">
+      <button class="tool-btn" onclick="shiftDay(-1)">←</button>
+      <button class="tool-btn" id="day-label" onclick="dayToday()">Today</button>
+      <button class="tool-btn" onclick="shiftDay(1)">→</button>
+      <button class="tool-btn primary" onclick="openBackfill()">+ Add</button>
+    </div>
+    <div id="day-summary" class="day-summary"></div>
+    <div id="day-timeline"></div>
+  </div>
+
+  <div id="view-real" class="view">
+    <div id="real-list"></div>
+    <div id="util-panel" class="real-card" style="margin-top:8px"></div>
+  </div>
+
+  <div id="view-export" class="view">
     <div class="exp-card">
       <h3>Daily report</h3>
       <div class="exp-stats" id="stats-day"></div>
@@ -147,79 +245,421 @@
       <p>This calendar month, totals per activity included.</p>
       <button class="exp-btn" onclick="exportCSV('month')">Download monthly CSV</button>
     </div>
+    <div class="exp-card">
+      <h3>Engagement timesheet</h3>
+      <p>Per-engagement export for the audit file. Includes confidence (timed / adjusted / reconstructed) by default. EUR only.</p>
+      <div class="field">
+        <label>Stream</label>
+        <select id="ts-stream"></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>From</label><input type="date" id="ts-from"></div>
+        <div class="field"><label>To</label><input type="date" id="ts-to"></div>
+      </div>
+      <button class="exp-btn" onclick="exportTimesheet()">Download timesheet CSV</button>
+    </div>
+    <div class="exp-card">
+      <h3>Sync endpoint</h3>
+      <p>Tailscale URL for the sync API. Token stays in localStorage only — never commit it.</p>
+      <div class="field"><label>API base URL</label><input type="url" id="cfg-api" placeholder="http://100.x.x.x:8787"></div>
+      <div class="field"><label>Bearer token</label><input type="password" id="cfg-token" placeholder="from Vaultwarden" autocomplete="off"></div>
+      <button class="exp-btn" onclick="saveSyncConfig()">Save sync config</button>
+      <button class="exp-btn" style="margin-top:8px" onclick="flushSync(true)">Flush queue now</button>
+    </div>
   </div>
 </div>
 
+<div id="modal"><div id="modal-sheet"></div></div>
+<div id="toast"></div>
+
 <script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG — change working windows here, not in gap logic
+═══════════════════════════════════════════════════════════════ */
+const WORK_WINDOWS = {
+  // Mon–Fri
+  weekday: { start: '08:00', end: '21:00' },
+  // Saturday: six working hours — assumed 10:00–16:00 (confirm at first use)
+  saturday: { start: '10:00', end: '16:00' },
+  // Sunday: no gap detection
+  sunday: null,
+};
+const EOD_UNACCOUNTED_THRESHOLD_H = 1.0; // nudge if unaccounted > this
+const BACKFILL_CONFIRM_DAYS = 7;
+const TZ = 'Europe/Sofia';
+
 const ACTS = [
   { id:'rest',    label:'Rest',    icon:'🛋', color:'#1D9E75', subs:['Sleep','Nap','Rest','Other'] },
   { id:'eat',     label:'Eat',     icon:'🍽', color:'#EF9F27', subs:['Cook','Breakfast','Lunch','Snack','Dinner','Dine out'] },
   { id:'care',    label:'Care',    icon:'🪥', color:'#D4537E', subs:['Personal','Custom'] },
-  { id:'billing', label:'Billing', icon:'💳', color:'#7F77DD', subs:['Audit work','EV','Custom'] },
+  { id:'billing', label:'Billing', icon:'💳', color:'#7F77DD', subs:[] }, // streams replace subs
   { id:'work',    label:'Work',    icon:'🔨', color:'#378ADD', subs:['House','Garden','Custom'] },
   { id:'train',   label:'Train',   icon:'🏊', color:'#D85A30', subs:['Swimming','Tennis','Yoga','Weights','Run','Bike','Custom'] },
   { id:'study',   label:'Study',   icon:'📚', color:'#639922', subs:['Language','AI','IDES','Custom'] },
   { id:'pets',    label:'Pets',    icon:'🐾', color:'#BA7517', subs:['Food','Train','Play','Custom'] }
 ];
 
+/* Hardcoded streams — ship day one. Fees filled from Договори_одит_2024 (EUR). */
+const STREAMS_SEED = [
+  { id:'s-scorpio',  kind:'client',   code:'SCORPIO-25', name:'Statutory Audit FY2025', client:'Scorpio Oil Transport OOD', client_local:null, billable_default:true,  fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-global',   kind:'client',   code:'GLOBAL-25',  name:'Statutory Audit FY2025', client:'Global Exchange OOD',       client_local:null, billable_default:true,  fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-kumer',    kind:'client',   code:'KUMER-25',   name:'Statutory Audit FY2025', client:'Kumer OOD', client_local:'Кумер ООД', billable_default:true, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-fashion',  kind:'client',   code:'FASHION-25', name:'Statutory Audit FY2025', client:'Fashion Icon OOD', client_local:'Фешън Айкон ООД', billable_default:true, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-samokov',  kind:'client',   code:'SAMOKOV-25', name:'Statutory Audit FY2025', client:'MBAL Samokov EOOD', client_local:'МБАЛ Самоков ЕООД', billable_default:true, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-b2b',      kind:'client',   code:'B2B-25',     name:'Statutory Audit FY2025', client:'B2B EOOD', client_local:'Би Ту Би ЕООД', billable_default:true, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-auditos',  kind:'internal', code:'DEV-AUDITOS', name:'Audit OS / ERPNext', client:null, billable_default:false, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-real',     kind:'internal', code:'DEV-REAL',    name:'Realization app', client:null, billable_default:false, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-homelab',  kind:'internal', code:'DEV-HOMELAB', name:'Home lab & infrastructure', client:null, billable_default:false, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-evadmin',  kind:'admin',    code:'EV-ADMIN',    name:'Easy Ventures administration, banking, filings', client:null, billable_default:false, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+  { id:'s-bd',       kind:'admin',    code:'BD',          name:'Business development, leads, proposals', client:null, billable_default:false, fee_amount:null, budget_hours:null, billing_model:'fixed', sort_hint:0 },
+];
+
+const LS_ENTRIES = 'tt_v2';
+const LS_V1 = 'tt_v1';
+const LS_STREAMS = 'tt_streams';
+const LS_QUEUE = 'tt_sync_queue';
+const LS_DEVICE = 'tt_device_id';
+const LS_LAST_STREAM = 'tt_last_stream';
+const LS_SYNC_CFG = 'tt_sync_cfg';
+const LS_SYNC_META = 'tt_sync_meta';
+const LS_ACTIVE = 'tt_active_timer';
+
 let S = {
-  active: null, activeSub: null, startTime: null,
-  timerInt: null, clockInt: null,
-  entries: [],
-  tab: 'grid'
+  active: null, activeSub: null, activeStream: null, activeBillable: false,
+  startTime: null, timerInt: null,
+  entries: [], streams: [],
+  tab: 'grid', dayDate: null,
+  pending: 0, lastSync: null,
 };
 
-function load() {
-  try { S.entries = JSON.parse(localStorage.getItem('tt_v1') || '[]'); } catch(e){ S.entries=[]; }
+/* ─── helpers ─── */
+function uuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16);
+  });
 }
-function save() {
-  try { localStorage.setItem('tt_v1', JSON.stringify(S.entries)); } catch(e){}
+function deviceId() {
+  let d = localStorage.getItem(LS_DEVICE);
+  if (!d) { d = 'web-' + uuid(); localStorage.setItem(LS_DEVICE, d); }
+  return d;
 }
-load();
-
 function fmtDur(ms) {
   const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60);
   return h>0?`${h}h ${m%60}m`:m>0?`${m}m ${s%60}s`:`${s}s`;
 }
+function fmtDurH(ms){ return (ms/3600000).toFixed(2); }
 function fmtTime(ts){ return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 function fmtDate(ts){ return new Date(ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}); }
+function localISODate(d=new Date()){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseDur(str){
+  // "2h", "45m", "1h30", "1:30", "90"
+  str = String(str||'').trim().toLowerCase().replace(/\s+/g,'');
+  let h=0,m=0;
+  const hm = str.match(/^(\d+)h(\d+)?m?$/); if(hm){ h=+hm[1]; m=+(hm[2]||0); return (h*60+m)*60000; }
+  const colon = str.match(/^(\d+):(\d+)$/); if(colon){ return (+colon[1]*60+ +colon[2])*60000; }
+  const onlyM = str.match(/^(\d+)m$/); if(onlyM) return +onlyM[1]*60000;
+  const onlyH = str.match(/^(\d+)h$/); if(onlyH) return +onlyH[1]*3600000;
+  const num = str.match(/^(\d+)$/); if(num){ const n=+num[1]; return n<=12? n*3600000 : n*60000; }
+  return null;
+}
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800); }
+function streamById(id){ return S.streams.find(s=>s.id===id); }
+function streamByCode(code){ return S.streams.find(s=>s.code.toUpperCase()===String(code).toUpperCase()); }
+function actById(id){ return ACTS.find(a=>a.id===id); }
 
-function stopCurrent() {
-  if (!S.active || !S.startTime) return;
-  const dur = Date.now() - S.startTime;
-  if (dur > 1500) {
-    const act = ACTS.find(a=>a.id===S.active);
-    S.entries.unshift({ id:Date.now(), activity:S.active, label:act.label, sub:S.activeSub||'', start:S.startTime, end:Date.now(), duration:dur, color:act.color });
+/* ─── current-truth projection (mirrors tt.entry_current) ─── */
+function currentEntries(all){
+  const list = all || S.entries;
+  const superseded = new Set(list.filter(e=>e.supersedes_id).map(e=>e.supersedes_id));
+  return list.filter(e=>!e.void && !superseded.has(e.id));
+}
+function priorVersion(id){
+  // walk supersede chain backwards: who does this supersede?
+  const e = S.entries.find(x=>x.id===id);
+  if(!e || !e.supersedes_id) return null;
+  return S.entries.find(x=>x.id===e.supersedes_id) || null;
+}
+
+/* ─── load / migrate / save ─── */
+function loadStreams(){
+  try {
+    const cached = JSON.parse(localStorage.getItem(LS_STREAMS)||'null');
+    if (Array.isArray(cached) && cached.length) S.streams = cached;
+    else S.streams = STREAMS_SEED.map(s=>({...s, sort_hint: s.sort_hint||0}));
+  } catch(e){ S.streams = STREAMS_SEED.map(s=>({...s})); }
+  // Merge any new seed codes not yet in cache
+  STREAMS_SEED.forEach(seed=>{
+    if(!S.streams.find(s=>s.code===seed.code)) S.streams.push({...seed});
+  });
+  saveStreams();
+}
+function saveStreams(){ try{ localStorage.setItem(LS_STREAMS, JSON.stringify(S.streams)); }catch(e){} }
+
+function migrateV1(){
+  try {
+    const raw = localStorage.getItem(LS_V1);
+    if(!raw) return [];
+    const old = JSON.parse(raw);
+    if(!Array.isArray(old) || !old.length) return [];
+    // Already migrated?
+    if(localStorage.getItem(LS_ENTRIES)) return [];
+    return old.map(e=>{
+      // EV sub-activity → prefer EV-ADMIN stream annotation in sub only; stream_id stays null for history
+      let sub = e.sub||'';
+      return {
+        id: uuid(),
+        activity: e.activity, label: e.label, sub,
+        color: e.color, start: e.start, end: e.end, duration: e.duration,
+        stream_id: null, stream_code: null, stream_name: null,
+        billable: false, note: '',
+        source: 'import', confidence: 'timed',
+        supersedes_id: null, void: false, reason: null,
+        device_id: deviceId(), entered_at: e.end || Date.now(), synced: false,
+        _legacy_id: e.id,
+      };
+    });
+  } catch(e){ return []; }
+}
+
+function load(){
+  loadStreams();
+  try {
+    let entries = JSON.parse(localStorage.getItem(LS_ENTRIES)||'[]');
+    if(!entries.length){
+      const migrated = migrateV1();
+      if(migrated.length){
+        entries = migrated;
+        localStorage.setItem(LS_ENTRIES, JSON.stringify(entries));
+        toast(`Migrated ${migrated.length} entries from tt_v1`);
+      }
+    }
+    S.entries = entries;
+  } catch(e){ S.entries=[]; }
+  try {
+    const meta = JSON.parse(localStorage.getItem(LS_SYNC_META)||'{}');
+    S.lastSync = meta.lastSync || null;
+    S.pending = (JSON.parse(localStorage.getItem(LS_QUEUE)||'[]')).length;
+  } catch(e){}
+  // Restore running timer across reloads
+  try {
+    const a = JSON.parse(localStorage.getItem(LS_ACTIVE)||'null');
+    if(a && a.active && a.startTime){
+      S.active=a.active; S.activeSub=a.activeSub; S.activeStream=a.activeStream;
+      S.activeBillable=!!a.activeBillable; S.startTime=a.startTime;
+    }
+  } catch(e){}
+}
+function save(){
+  try{ localStorage.setItem(LS_ENTRIES, JSON.stringify(S.entries)); }catch(e){}
+}
+function persistActive(){
+  if(S.active && S.startTime){
+    localStorage.setItem(LS_ACTIVE, JSON.stringify({
+      active:S.active, activeSub:S.activeSub, activeStream:S.activeStream,
+      activeBillable:S.activeBillable, startTime:S.startTime
+    }));
+  } else localStorage.removeItem(LS_ACTIVE);
+}
+
+/* ─── sync queue ─── */
+function enqueue(entry){
+  let q=[]; try{ q=JSON.parse(localStorage.getItem(LS_QUEUE)||'[]'); }catch(e){}
+  if(!q.includes(entry.id)) q.push(entry.id);
+  localStorage.setItem(LS_QUEUE, JSON.stringify(q));
+  S.pending = q.length;
+  updateSyncPill();
+  flushSync(false);
+}
+function syncConfig(){
+  try{ return JSON.parse(localStorage.getItem(LS_SYNC_CFG)||'{}'); }catch(e){ return {}; }
+}
+function saveSyncConfig(){
+  const api = document.getElementById('cfg-api').value.trim().replace(/\/$/,'');
+  const token = document.getElementById('cfg-token').value.trim();
+  localStorage.setItem(LS_SYNC_CFG, JSON.stringify({ api, token }));
+  toast('Sync config saved');
+  flushSync(true);
+}
+function updateSyncPill(){
+  const el = document.getElementById('sync-pill');
+  const when = S.lastSync ? new Date(S.lastSync).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '—';
+  el.textContent = S.pending ? `sync · ${S.pending} pending` : `sync · ${when}`;
+}
+async function flushSync(force){
+  const cfg = syncConfig();
+  if(!cfg.api || !cfg.token){ if(force) toast('Set API URL + token in Export'); updateSyncPill(); return; }
+  if(!navigator.onLine && !force){ updateSyncPill(); return; }
+  let q=[]; try{ q=JSON.parse(localStorage.getItem(LS_QUEUE)||'[]'); }catch(e){}
+  if(!q.length){ updateSyncPill(); return; }
+  const byId = Object.fromEntries(S.entries.map(e=>[e.id,e]));
+  const batch = q.map(id=>byId[id]).filter(Boolean).slice(0,50);
+  if(!batch.length){ localStorage.setItem(LS_QUEUE,'[]'); S.pending=0; updateSyncPill(); return; }
+  const payload = {
+    device_id: deviceId(),
+    entries: batch.map(e=>({
+      id: e.id, activity: e.activity, sub: e.sub||null,
+      stream_id: (e.stream_id && String(e.stream_id).match(/^[0-9a-f-]{36}$/i)) ? e.stream_id : null,
+      // Local seed ids are not UUIDs — server resolves by code via stream_code field
+      stream_code: e.stream_code || null,
+      billable: !!e.billable,
+      started_at: new Date(e.start).toISOString(),
+      ended_at: new Date(e.end).toISOString(),
+      note: e.note||null, source: e.source||'pwa', confidence: e.confidence||'timed',
+      supersedes_id: e.supersedes_id||null, void: !!e.void, reason: e.reason||null,
+      entered_at: e.entered_at ? new Date(e.entered_at).toISOString() : undefined,
+    })),
+  };
+  try {
+    const res = await fetch(cfg.api + '/api/entries', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+cfg.token },
+      body: JSON.stringify(payload),
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    const accepted = new Set(data.accepted||[]);
+    // Mark synced; drop from queue only what server acknowledged
+    S.entries.forEach(e=>{ if(accepted.has(e.id)) e.synced=true; });
     save();
+    q = q.filter(id=>!accepted.has(id));
+    localStorage.setItem(LS_QUEUE, JSON.stringify(q));
+    S.pending = q.length;
+    S.lastSync = Date.now();
+    localStorage.setItem(LS_SYNC_META, JSON.stringify({ lastSync: S.lastSync }));
+    updateSyncPill();
+    if(force) toast(`Synced ${accepted.size} entries`);
+  } catch(err){
+    updateSyncPill();
+    if(force) toast('Sync failed — will retry');
+    // backoff: retry later
+    setTimeout(()=>flushSync(false), 15000);
+  }
+}
+async function refreshStreamsFromApi(){
+  const cfg = syncConfig();
+  if(!cfg.api || !cfg.token) return;
+  try {
+    const res = await fetch(cfg.api + '/api/streams', {
+      headers:{ 'Authorization':'Bearer '+cfg.token }
+    });
+    if(!res.ok) return;
+    const rows = await res.json();
+    if(Array.isArray(rows) && rows.length){
+      // Keep local fee overrides if server fee is null
+      const byCode = Object.fromEntries(S.streams.map(s=>[s.code,s]));
+      S.streams = rows.map(r=>({
+        id: r.id, kind: r.kind, code: r.code, name: r.name,
+        client: r.client, client_local: r.client_local,
+        billable_default: !!r.billable_default,
+        fee_amount: r.fee_amount != null ? Number(r.fee_amount) : (byCode[r.code]?.fee_amount ?? null),
+        budget_hours: r.budget_hours != null ? Number(r.budget_hours) : null,
+        billing_model: r.billing_model || 'fixed',
+        sort_hint: r.sort_hint ? new Date(r.sort_hint).getTime() : 0,
+        status: r.status || 'active',
+      }));
+      saveStreams();
+    }
+  } catch(e){}
+}
+
+/* ─── timer ─── */
+function touchStream(stream){
+  if(!stream) return;
+  stream.sort_hint = Date.now();
+  localStorage.setItem(LS_LAST_STREAM, stream.code);
+  saveStreams();
+}
+function stopCurrent(){
+  if(!S.active || !S.startTime) return;
+  const dur = Date.now() - S.startTime;
+  if(dur > 1500){
+    const act = actById(S.active);
+    const stream = S.activeStream ? streamById(S.activeStream) : null;
+    const entry = {
+      id: uuid(),
+      activity: S.active, label: act.label, sub: S.activeSub || (stream?stream.code:''),
+      color: act.color, start: S.startTime, end: Date.now(), duration: dur,
+      stream_id: stream?stream.id:null, stream_code: stream?stream.code:null, stream_name: stream?stream.name:null,
+      billable: !!S.activeBillable, note: '',
+      source: 'pwa', confidence: 'timed',
+      supersedes_id: null, void: false, reason: null,
+      device_id: deviceId(), entered_at: Date.now(), synced: false,
+    };
+    S.entries.unshift(entry);
+    save();
+    enqueue(entry);
+    if(stream) touchStream(stream);
   }
   clearInterval(S.timerInt);
-  S.active=null; S.activeSub=null; S.startTime=null;
+  S.active=null; S.activeSub=null; S.activeStream=null; S.activeBillable=false; S.startTime=null;
+  persistActive();
   document.getElementById('tbar-dot').classList.remove('on');
-  document.getElementById('tbar-text').textContent='Tap to track · Hold for sub-activity';
+  document.getElementById('tbar-text').textContent='Tap to track · Hold for picker';
   document.getElementById('tbar-stop').classList.remove('show');
+  document.getElementById('tbar-billable').classList.remove('show','on');
   document.querySelectorAll('.abt').forEach(b=>b.classList.remove('is-active'));
   document.getElementById('sub-layer').classList.remove('open');
   if(S.tab==='log') renderLog();
+  if(S.tab==='day') renderDay();
+  if(S.tab==='real') renderReal();
 }
-
-function startActivity(id, sub) {
+function startActivity(id, sub, streamId, opts){
+  opts = opts||{};
   stopCurrent();
-  const act=ACTS.find(a=>a.id===id);
-  S.active=id; S.activeSub=sub||null; S.startTime=Date.now();
+  const act = actById(id);
+  const stream = streamId ? streamById(streamId) : null;
+  S.active=id; S.activeSub=sub||null; S.activeStream=stream?stream.id:null;
+  // Billable defaults from stream every session — never sticky
+  S.activeBillable = stream ? !!stream.billable_default : false;
+  if(typeof opts.billable === 'boolean') S.activeBillable = opts.billable;
+  S.startTime = opts.startTime || Date.now();
+  persistActive();
   document.getElementById('tbar-dot').classList.add('on');
   document.getElementById('tbar-stop').classList.add('show');
+  const billBtn = document.getElementById('tbar-billable');
+  if(stream){ billBtn.classList.add('show'); billBtn.classList.toggle('on', S.activeBillable); billBtn.textContent = S.activeBillable ? 'Billable' : 'Not billable'; }
+  else { billBtn.classList.remove('show','on'); }
   const btn=document.querySelector(`[data-id="${id}"]`);
   if(btn) btn.classList.add('is-active');
   clearInterval(S.timerInt);
-  S.timerInt=setInterval(()=>{
-    const el=Date.now()-S.startTime;
-    document.getElementById('tbar-text').textContent=`${act.icon} ${act.label}${S.activeSub?' · '+S.activeSub:''} · ${fmtDur(el)}`;
-  },1000);
-  document.getElementById('tbar-text').textContent=`${act.icon} ${act.label}${sub?' · '+sub:''} · 0s`;
+  const label = ()=>{
+    const streamBit = stream ? ` · ${stream.code}` : (S.activeSub?` · ${S.activeSub}`:'');
+    const billBit = stream ? (S.activeBillable?' · BILL':' · non-bill') : '';
+    return `${act.icon} ${act.label}${streamBit}${billBit} · ${fmtDur(Date.now()-S.startTime)}`;
+  };
+  S.timerInt=setInterval(()=>{ document.getElementById('tbar-text').textContent=label(); },1000);
+  document.getElementById('tbar-text').textContent=label();
+  if(stream) touchStream(stream);
+}
+function toggleBillable(){
+  if(!S.activeStream) return;
+  S.activeBillable = !S.activeBillable;
+  persistActive();
+  const billBtn = document.getElementById('tbar-billable');
+  billBtn.classList.toggle('on', S.activeBillable);
+  billBtn.textContent = S.activeBillable ? 'Billable' : 'Not billable';
+}
+function startBillingStream(stream){
+  startActivity('billing', stream.code, stream.id);
+}
+function startLastBilling(){
+  const code = localStorage.getItem(LS_LAST_STREAM);
+  let stream = code ? streamByCode(code) : null;
+  if(!stream){
+    stream = S.streams.filter(s=>s.kind==='client').sort((a,b)=>(b.sort_hint||0)-(a.sort_hint||0))[0];
+  }
+  if(stream) startBillingStream(stream);
+  else openStreamPicker();
 }
 
-function openSub(id) {
-  const act=ACTS.find(a=>a.id===id);
+/* ─── pickers ─── */
+function openSub(id){
+  if(id==='billing'){ openStreamPicker(); return; }
+  const act=actById(id);
   document.getElementById('sub-header').textContent=`${act.label} — choose sub-activity`;
   const grid=document.getElementById('sub-chips');
   grid.innerHTML='';
@@ -227,17 +667,37 @@ function openSub(id) {
     const c=document.createElement('button');
     c.className='chip'; c.textContent=s;
     if(S.active===id && S.activeSub===s) c.classList.add('active');
-    c.onclick=()=>{
-      document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
-      c.classList.add('active');
-      startActivity(id,s);
-    };
+    c.onclick=()=>{ document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); startActivity(id,s); };
     grid.appendChild(c);
   });
   document.getElementById('sub-layer').classList.add('open');
 }
-
-function buildGrid() {
+function openStreamPicker(){
+  document.getElementById('sub-header').textContent='Billing — choose stream';
+  const grid=document.getElementById('sub-chips');
+  grid.innerHTML='';
+  const sorted = [...S.streams].sort((a,b)=>(b.sort_hint||0)-(a.sort_hint||0));
+  const groups = [
+    { kind:'client', label:'Client engagements' },
+    { kind:'internal', label:'Internal' },
+    { kind:'admin', label:'Admin' },
+  ];
+  groups.forEach(g=>{
+    const items = sorted.filter(s=>s.kind===g.kind);
+    if(!items.length) return;
+    const div=document.createElement('div'); div.className='stream-divider'; div.textContent=g.label; grid.appendChild(div);
+    items.forEach(s=>{
+      const c=document.createElement('button');
+      c.className=`stream-chip kind-${s.kind}`;
+      const title = s.client_local || s.client || s.name;
+      c.innerHTML=`<span class="sc-code">${s.code}</span><span class="sc-name">${title}${s.kind!=='client'?' · '+s.name:''}</span>`;
+      c.onclick=()=>startBillingStream(s);
+      grid.appendChild(c);
+    });
+  });
+  document.getElementById('sub-layer').classList.add('open');
+}
+function buildGrid(){
   const g=document.getElementById('act-grid');
   g.innerHTML='';
   ACTS.forEach(act=>{
@@ -246,7 +706,14 @@ function buildGrid() {
     btn.innerHTML=`<div class="abt-fill" style="background:${act.color}"></div><div class="abt-ring"></div><span class="abt-icon">${act.icon}</span><span class="abt-label">${act.label}</span>`;
     let ptimer=null, didLong=false;
     const sp=()=>{ didLong=false; btn.classList.add('pressing'); ptimer=setTimeout(()=>{ didLong=true; btn.classList.remove('pressing'); openSub(act.id); },600); };
-    const ep=()=>{ clearTimeout(ptimer); btn.classList.remove('pressing'); if(!didLong){ if(S.active===act.id&&!S.activeSub){stopCurrent();}else{startActivity(act.id,null);} } };
+    const ep=()=>{
+      clearTimeout(ptimer); btn.classList.remove('pressing');
+      if(!didLong){
+        if(S.active===act.id && !S.activeSub && !S.activeStream){ stopCurrent(); }
+        else if(act.id==='billing'){ startLastBilling(); }
+        else { startActivity(act.id,null); }
+      }
+    };
     const cp=()=>{ clearTimeout(ptimer); btn.classList.remove('pressing'); didLong=true; };
     btn.addEventListener('mousedown',sp);
     btn.addEventListener('mouseup',ep);
@@ -258,29 +725,537 @@ function buildGrid() {
   });
 }
 
-function renderLog() {
-  const el=document.getElementById('view-log');
-  if(!S.entries.length){ el.innerHTML='<div id="log-empty">No entries yet</div>'; return; }
+/* ─── log ─── */
+function renderLog(){
+  const el=document.getElementById('log-list');
+  const cur = currentEntries().slice().sort((a,b)=>b.start-a.start);
+  if(!cur.length){ el.innerHTML='<div class="empty">No entries yet</div>'; return; }
   let html='', lastDay='';
-  S.entries.slice(0,100).forEach(e=>{
+  cur.slice(0,150).forEach(e=>{
     const day=new Date(e.start).toDateString();
     if(day!==lastDay){ html+=`<div class="log-day-label">${fmtDate(e.start)}</div>`; lastDay=day; }
-    html+=`<div class="log-entry"><div class="log-pip" style="background:${e.color}"></div><div class="log-info"><div class="log-name">${e.label}${e.sub?' · '+e.sub:''}</div><div class="log-meta">${fmtTime(e.start)} – ${fmtTime(e.end)}</div></div><div class="log-dur">${fmtDur(e.duration)}</div></div>`;
+    const badges = [
+      e.confidence==='reconstructed'?'<span class="badge badge-recon">recon</span>':'',
+      e.confidence==='adjusted'?'<span class="badge badge-adj">adj</span>':'',
+      e.billable?'<span class="badge badge-bill">bill</span>':'',
+    ].join('');
+    const name = e.stream_code || e.sub || e.label;
+    html+=`<div class="log-entry ${e.confidence!=='timed'?'adjusted':''}" onclick="openEdit('${e.id}')">
+      <div class="log-pip" style="background:${e.color}"></div>
+      <div class="log-info"><div class="log-name">${e.label}${name && name!==e.label?' · '+name:''}${badges}</div>
+      <div class="log-meta">${fmtTime(e.start)} – ${fmtTime(e.end)}${e.note?' · '+esc(e.note):''}</div></div>
+      <div class="log-dur">${fmtDur(e.duration)}</div></div>`;
   });
   el.innerHTML=html;
 }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
-function periodEntries(period) {
+/* ─── day view + gaps ─── */
+function workWindowFor(dateObj){
+  const day = dateObj.getDay();
+  if(day===0) return WORK_WINDOWS.sunday;
+  if(day===6) return WORK_WINDOWS.saturday;
+  return WORK_WINDOWS.weekday;
+}
+function dayBounds(dateObj){
+  const w = workWindowFor(dateObj);
+  if(!w) return null;
+  const [sh,sm]=w.start.split(':').map(Number);
+  const [eh,em]=w.end.split(':').map(Number);
+  const start = new Date(dateObj); start.setHours(sh,sm,0,0);
+  const end = new Date(dateObj); end.setHours(eh,em,0,0);
+  return { start:start.getTime(), end:end.getTime(), window:w };
+}
+function gapsForDay(dateObj){
+  const bounds = dayBounds(dateObj);
+  if(!bounds) return { gaps:[], overlaps:[], accounted:0, window:0, bounds:null };
+  const dayStr = dateObj.toDateString();
+  const entries = currentEntries()
+    .filter(e=>new Date(e.start).toDateString()===dayStr || new Date(e.end).toDateString()===dayStr)
+    .map(e=>({ ...e, _s: Math.max(e.start, bounds.start), _e: Math.min(e.end, bounds.end) }))
+    .filter(e=>e._e > e._s)
+    .sort((a,b)=>a._s-b._s);
+
+  const overlaps=[];
+  for(let i=0;i<entries.length;i++){
+    for(let j=i+1;j<entries.length;j++){
+      if(entries[j]._s < entries[i]._e) overlaps.push([entries[i], entries[j]]);
+    }
+  }
+  const gaps=[];
+  let cursor = bounds.start;
+  let accounted = 0;
+  entries.forEach(e=>{
+    if(e._s > cursor + 60000){
+      gaps.push({ start: cursor, end: e._s, duration: e._s - cursor });
+    }
+    // accounted uses full entry duration inside the day (any activity closes a gap)
+    accounted += (e._e - Math.max(cursor, e._s)); // rough; better use clipped
+    cursor = Math.max(cursor, e._e);
+  });
+  // recompute accounted properly
+  accounted = entries.reduce((a,e)=>a+(e._e-e._s),0);
+  if(bounds.end > cursor + 60000) gaps.push({ start: cursor, end: bounds.end, duration: bounds.end-cursor });
+  return { gaps, overlaps, accounted, window: bounds.end-bounds.start, bounds, entries };
+}
+function shiftDay(delta){
+  const d = S.dayDate ? new Date(S.dayDate) : new Date();
+  d.setDate(d.getDate()+delta);
+  S.dayDate = d;
+  renderDay();
+}
+function dayToday(){ S.dayDate = new Date(); renderDay(); }
+function renderDay(){
+  if(!S.dayDate) S.dayDate = new Date();
+  const d = S.dayDate;
+  document.getElementById('day-label').textContent = localISODate(d)===localISODate(new Date()) ? 'Today' : fmtDate(d.getTime());
+  const info = gapsForDay(d);
+  const unaccounted = info.bounds ? Math.max(0, info.window - info.accounted) : 0;
+  document.getElementById('day-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div><div class="big">${info.bounds?fmtDurH(info.accounted)+'h':'—'}</div><div class="lbl">Accounted</div></div>
+      <div><div class="big" style="color:${unaccounted>EOD_UNACCOUNTED_THRESHOLD_H*3600000? 'var(--warn)':'var(--text)'}">${info.bounds?fmtDurH(unaccounted)+'h':'—'}</div><div class="lbl">Unaccounted</div></div>
+      <div><div class="big">${info.bounds?fmtDurH(info.window)+'h':'off'}</div><div class="lbl">Window${d.getDay()===0?' (Sun)':d.getDay()===6?' (Sat)':''}</div></div>
+    </div>
+    ${info.overlaps.length?`<div style="margin-top:8px;font-size:12px;color:var(--warn)">${info.overlaps.length} overlap(s) — resolve in Log</div>`:''}
+    ${d.getDay()===6?`<div style="margin-top:8px;font-size:11px;color:var(--text3)">Saturday window ${WORK_WINDOWS.saturday.start}–${WORK_WINDOWS.saturday.end} (six hours — confirm if wrong)</div>`:''}
+  `;
+  const tl = document.getElementById('day-timeline');
+  if(!info.bounds){
+    tl.innerHTML = '<div class="empty">No gap detection on Sunday</div>';
+    return;
+  }
+  // Merge entries + gaps into timeline
+  const items = [
+    ...info.entries.map(e=>({ type:'entry', start:e._s, end:e._e, e })),
+    ...info.gaps.map(g=>({ type:'gap', start:g.start, end:g.end, g })),
+  ].sort((a,b)=>a.start-b.start);
+  tl.innerHTML = items.map(it=>{
+    if(it.type==='gap'){
+      return `<div class="day-row gap" onclick="fillGap(${it.g.start},${it.g.end})">
+        <div class="day-time">${fmtTime(it.g.start)}</div>
+        <div><div class="log-name">Unaccounted gap</div><div class="log-meta">Tap to fill · ${fmtDur(it.g.duration)}</div></div>
+        <div class="log-dur">${fmtDur(it.g.duration)}</div></div>`;
+    }
+    const e=it.e;
+    const name=e.stream_code||e.sub||e.label;
+    const ov = info.overlaps.some(([a,b])=>a.id===e.id||b.id===e.id);
+    return `<div class="day-row ${ov?'overlap':''}" onclick="openEdit('${e.id}')">
+      <div class="day-time">${fmtTime(e.start)}</div>
+      <div><div class="log-name">${e.label}${name&&name!==e.label?' · '+name:''}${e.confidence!=='timed'?` <span class="badge badge-recon">${e.confidence.slice(0,5)}</span>`:''}</div>
+      <div class="log-meta">${fmtTime(e.start)} – ${fmtTime(e.end)}</div></div>
+      <div class="log-dur">${fmtDur(e.duration)}</div></div>`;
+  }).join('') || '<div class="empty">Nothing logged in the working window</div>';
+}
+function fillGap(start, end){
+  openBackfill({ start, end, duration: end-start, fromGap: true });
+}
+
+/* ─── realization + utilization (computed locally; API when available) ─── */
+function renderReal(){
+  const cur = currentEntries();
+  const cards = S.streams.filter(s=>s.kind==='client' && s.billing_model==='fixed').map(s=>{
+    const rows = cur.filter(e=>e.stream_id===s.id || e.stream_code===s.code);
+    const hours = rows.reduce((a,e)=>a+e.duration,0)/3600000;
+    const recon = rows.reduce((a,e)=>a+(e.confidence!=='timed'?e.duration:0),0);
+    const reconPct = hours>0 ? (recon/3600000)/hours*100 : 0;
+    const fee = s.fee_amount;
+    const eff = fee!=null && hours>0 ? fee/hours : null;
+    const burn = s.budget_hours ? hours/s.budget_hours*100 : null;
+    // Flag when effective hourly drops below a rough floor — owner will tune; use 40 EUR/h as signal
+    const floor = 40;
+    return { s, hours, reconPct, fee, eff, burn, worst: eff!=null && eff < floor };
+  }).sort((a,b)=>{
+    if(a.eff==null && b.eff==null) return b.hours-a.hours;
+    if(a.eff==null) return 1; if(b.eff==null) return -1;
+    return a.eff-b.eff; // worst deal first
+  });
+
+  document.getElementById('real-list').innerHTML = cards.map(({s,hours,reconPct,fee,eff,burn,worst})=>`
+    <div class="real-card ${worst?'worst':''}">
+      <div class="real-code">${s.code}</div>
+      <div class="real-client">${s.client_local||s.client}</div>
+      <div class="real-grid">
+        <div><div class="stat-val">${fee!=null?('€'+Number(fee).toLocaleString('en-IE',{maximumFractionDigits:0})):'—'}</div><div class="stat-lbl">Fee (EUR)</div></div>
+        <div><div class="stat-val">${hours.toFixed(2)}h</div><div class="stat-lbl">Hours to date</div></div>
+        <div><div class="stat-val">${eff!=null?('€'+eff.toFixed(0)):'—'}</div><div class="stat-lbl">Effective hourly</div></div>
+        <div><div class="stat-val">${burn!=null?burn.toFixed(0)+'%':'—'}</div><div class="stat-lbl">Burn vs budget</div></div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text2)">
+        Reconstructed ${reconPct.toFixed(0)}% of hours
+        ${worst?' · <span style="color:var(--warn)">below €40/h floor</span>':''}
+        ${fee==null?' · <span style="color:var(--recon)">set fee from contracts sheet</span>':''}
+      </div>
+    </div>
+  `).join('') || '<div class="empty">No client streams</div>';
+
+  // Utilization — working time = stream_id set
+  const byMonth = {};
+  cur.filter(e=>e.stream_id || e.stream_code).forEach(e=>{
+    const d=new Date(e.start);
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!byMonth[key]) byMonth[key]={ billable:0, internal:0, admin:0, total:0 };
+    const st = streamById(e.stream_id) || streamByCode(e.stream_code);
+    byMonth[key].total += e.duration;
+    if(e.billable) byMonth[key].billable += e.duration;
+    if(st?.kind==='internal') byMonth[key].internal += e.duration;
+    if(st?.kind==='admin') byMonth[key].admin += e.duration;
+  });
+  const months = Object.keys(byMonth).sort().reverse().slice(0,6);
+  document.getElementById('util-panel').innerHTML = `
+    <h3 style="font-size:14px;margin-bottom:8px">Utilization</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Billable hours ÷ total working hours. Internal work is why this number exists.</p>
+    ${months.map(k=>{
+      const m=byMonth[k]; const util=m.total? m.billable/m.total*100:0;
+      const b=m.billable/m.total*100, i=m.internal/m.total*100, a=m.admin/m.total*100;
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span>${k}</span><span>${util.toFixed(0)}% util · ${fmtDurH(m.billable)}h bill / ${fmtDurH(m.total)}h</span>
+        </div>
+        <div class="util-bar">
+          <span style="width:${b}%;background:var(--ok)"></span>
+          <span style="width:${i}%;background:var(--internal)"></span>
+          <span style="width:${a}%;background:var(--admin)"></span>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px">
+          bill ${fmtDurH(m.billable)}h · internal ${fmtDurH(m.internal)}h · admin ${fmtDurH(m.admin)}h
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty">No working time yet</div>'}
+  `;
+}
+
+/* ─── write paths: insert / supersede / void / backfill ─── */
+function insertEntry(partial){
+  const act = actById(partial.activity) || actById('billing');
+  const stream = partial.stream_id ? streamById(partial.stream_id) : (partial.stream_code?streamByCode(partial.stream_code):null);
+  const entry = {
+    id: partial.id || uuid(),
+    activity: act.id, label: act.label,
+    sub: partial.sub || (stream?stream.code:'') || '',
+    color: act.color,
+    start: partial.start, end: partial.end, duration: partial.end - partial.start,
+    stream_id: stream?stream.id:null, stream_code: stream?stream.code:null, stream_name: stream?stream.name:null,
+    billable: !!partial.billable, note: partial.note||'',
+    source: partial.source||'pwa', confidence: partial.confidence||'timed',
+    supersedes_id: partial.supersedes_id||null, void: !!partial.void, reason: partial.reason||null,
+    device_id: deviceId(), entered_at: Date.now(), synced: false,
+  };
+  if((entry.supersedes_id || entry.void) && !entry.reason){
+    toast('Reason required for corrections'); return null;
+  }
+  if(entry.end <= entry.start){ toast('End must be after start'); return null; }
+  // Overlap check against current entries (errors, not merges)
+  const overlaps = currentEntries().filter(e=>{
+    if(entry.void) return false;
+    if(entry.supersedes_id && e.id===entry.supersedes_id) return false;
+    return e.start < entry.end && e.end > entry.start;
+  });
+  if(overlaps.length){
+    const ok = confirm(`This overlaps ${overlaps.length} existing entr${overlaps.length>1?'ies':'y'}. Save anyway? (overlaps stay visible in Day view)`);
+    if(!ok) return null;
+  }
+  S.entries.unshift(entry);
+  save();
+  enqueue(entry);
+  if(stream) touchStream(stream);
+  return entry;
+}
+
+function openModal(html){
+  document.getElementById('modal-sheet').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); }
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target.id==='modal') closeModal(); });
+
+function streamOptions(selected){
+  return S.streams.map(s=>{
+    const label = s.kind==='client' ? `${s.code} — ${s.client_local||s.client}` : `${s.code} — ${s.name}`;
+    return `<option value="${s.id}" ${selected===s.id?'selected':''}>[${s.kind}] ${label}</option>`;
+  }).join('');
+}
+
+function openEdit(id){
+  const e = currentEntries().find(x=>x.id===id) || S.entries.find(x=>x.id===id);
+  if(!e) return;
+  const prior = priorVersion(e.id);
+  const startLocal = toLocalInput(e.start);
+  const endLocal = toLocalInput(e.end);
+  openModal(`
+    <h2>Edit entry</h2>
+    ${e.confidence!=='timed'?`<p style="font-size:12px;color:var(--recon);margin-bottom:8px">Marked ${e.confidence}${e.reason?' — '+esc(e.reason):''}</p>`:''}
+    ${prior?`<p style="font-size:11px;color:var(--text3);margin-bottom:8px">Supersedes prior ${fmtTime(prior.start)}–${fmtTime(prior.end)} (${fmtDur(prior.duration)})${prior.reason?' · '+esc(prior.reason):''}</p>`:''}
+    <div class="field-row">
+      <div class="field"><label>Start</label><input type="datetime-local" id="ed-start" value="${startLocal}"></div>
+      <div class="field"><label>End</label><input type="datetime-local" id="ed-end" value="${endLocal}"></div>
+    </div>
+    <div class="field"><label>Activity</label>
+      <select id="ed-act">${ACTS.map(a=>`<option value="${a.id}" ${a.id===e.activity?'selected':''}>${a.label}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Stream (Billing)</label>
+      <select id="ed-stream"><option value="">— none —</option>${streamOptions(e.stream_id)}</select>
+    </div>
+    <div class="field"><label>Sub-activity</label><input id="ed-sub" value="${esc(e.sub||'')}"></div>
+    <div class="field"><label><input type="checkbox" id="ed-bill" ${e.billable?'checked':''}> Billable</label></div>
+    <div class="field"><label>Note</label><textarea id="ed-note">${esc(e.note||'')}</textarea></div>
+    <div class="field"><label>Reason for change (required)</label><input id="ed-reason" placeholder="late start / wrong stream / …" required></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="saveEdit('${e.id}')">Save correction</button>
+      <button onclick="openSplit('${e.id}')">Split</button>
+      <button onclick="openMerge('${e.id}')">Merge</button>
+      <button class="danger" onclick="voidEntry('${e.id}')">Void</button>
+      <button onclick="closeModal()">Cancel</button>
+    </div>
+  `);
+}
+function toLocalInput(ts){
+  const d=new Date(ts);
+  const off=d.getTimezoneOffset();
+  const local=new Date(d.getTime()-off*60000);
+  return local.toISOString().slice(0,16);
+}
+function fromLocalInput(v){ return new Date(v).getTime(); }
+
+function saveEdit(id){
+  const orig = currentEntries().find(x=>x.id===id);
+  if(!orig) return;
+  const reason = document.getElementById('ed-reason').value.trim();
+  if(!reason){ toast('Reason required'); return; }
+  const start = fromLocalInput(document.getElementById('ed-start').value);
+  const end = fromLocalInput(document.getElementById('ed-end').value);
+  const activity = document.getElementById('ed-act').value;
+  const stream_id = document.getElementById('ed-stream').value || null;
+  const sub = document.getElementById('ed-sub').value;
+  const billable = document.getElementById('ed-bill').checked;
+  const note = document.getElementById('ed-note').value;
+  const entry = insertEntry({
+    activity, sub, stream_id, billable, note, start, end,
+    source: 'manual', confidence: 'adjusted',
+    supersedes_id: orig.id, reason,
+  });
+  if(entry){ closeModal(); renderLog(); renderDay(); renderReal(); toast('Correction saved'); }
+}
+function voidEntry(id){
+  const orig = currentEntries().find(x=>x.id===id);
+  if(!orig) return;
+  const reason = document.getElementById('ed-reason')?.value.trim() || prompt('Reason for voiding:');
+  if(!reason){ toast('Reason required'); return; }
+  const entry = insertEntry({
+    activity: orig.activity, sub: orig.sub, stream_id: orig.stream_id, stream_code: orig.stream_code,
+    billable: false, note: orig.note, start: orig.start, end: orig.end,
+    source: 'manual', confidence: 'adjusted',
+    supersedes_id: orig.id, void: true, reason,
+  });
+  if(entry){ closeModal(); renderLog(); renderDay(); renderReal(); toast('Entry voided'); }
+}
+function openSplit(id){
+  const orig = currentEntries().find(x=>x.id===id);
+  if(!orig) return;
+  const mid = new Date((orig.start+orig.end)/2);
+  openModal(`
+    <h2>Split entry</h2>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">${fmtTime(orig.start)} – ${fmtTime(orig.end)} · pick the split point</p>
+    <div class="field"><label>Split at</label><input type="datetime-local" id="sp-at" value="${toLocalInput(mid.getTime())}"></div>
+    <div class="field"><label>Reason</label><input id="sp-reason" placeholder="was really two sessions"></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="doSplit('${id}')">Split</button>
+      <button onclick="openEdit('${id}')">Back</button>
+    </div>
+  `);
+}
+function doSplit(id){
+  const orig = currentEntries().find(x=>x.id===id);
+  const at = fromLocalInput(document.getElementById('sp-at').value);
+  const reason = document.getElementById('sp-reason').value.trim() || 'split';
+  if(!(at>orig.start && at<orig.end)){ toast('Split must be inside the entry'); return; }
+  // Void original, insert two adjusted pieces
+  insertEntry({
+    activity:orig.activity, sub:orig.sub, stream_id:orig.stream_id, billable:orig.billable, note:orig.note,
+    start:orig.start, end:orig.end, source:'manual', confidence:'adjusted',
+    supersedes_id:orig.id, void:true, reason:'split: '+reason,
+  });
+  insertEntry({
+    activity:orig.activity, sub:orig.sub, stream_id:orig.stream_id, billable:orig.billable, note:orig.note,
+    start:orig.start, end:at, source:'manual', confidence:'adjusted', reason:'split A: '+reason,
+  });
+  insertEntry({
+    activity:orig.activity, sub:orig.sub, stream_id:orig.stream_id, billable:orig.billable, note:orig.note,
+    start:at, end:orig.end, source:'manual', confidence:'adjusted', reason:'split B: '+reason,
+  });
+  closeModal(); renderLog(); renderDay(); toast('Split into two');
+}
+function openMerge(id){
+  const cur = currentEntries().sort((a,b)=>a.start-b.start);
+  const orig = cur.find(x=>x.id===id);
+  if(!orig) return;
+  const idx = cur.findIndex(x=>x.id===id);
+  const neighbor = cur[idx+1];
+  if(!neighbor){ toast('No later entry to merge with'); return; }
+  openModal(`
+    <h2>Merge with next</h2>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">
+      A: ${orig.label} ${fmtTime(orig.start)}–${fmtTime(orig.end)}<br>
+      B: ${neighbor.label} ${fmtTime(neighbor.start)}–${fmtTime(neighbor.end)}
+    </p>
+    <div class="field"><label>Reason</label><input id="mg-reason" placeholder="missed restart"></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="doMerge('${orig.id}','${neighbor.id}')">Merge</button>
+      <button onclick="openEdit('${id}')">Back</button>
+    </div>
+  `);
+}
+function doMerge(aId,bId){
+  const a = currentEntries().find(x=>x.id===aId);
+  const b = currentEntries().find(x=>x.id===bId);
+  const reason = document.getElementById('mg-reason').value.trim() || 'merge';
+  insertEntry({ activity:a.activity, sub:a.sub, stream_id:a.stream_id, billable:a.billable, note:a.note,
+    start:a.start, end:a.end, source:'manual', confidence:'adjusted', supersedes_id:a.id, void:true, reason:'merged: '+reason });
+  insertEntry({ activity:b.activity, sub:b.sub, stream_id:b.stream_id, billable:b.billable, note:b.note,
+    start:b.start, end:b.end, source:'manual', confidence:'adjusted', supersedes_id:b.id, void:true, reason:'merged: '+reason });
+  insertEntry({
+    activity:a.activity, sub:a.sub, stream_id:a.stream_id||b.stream_id,
+    billable:a.billable||b.billable, note:[a.note,b.note].filter(Boolean).join(' · '),
+    start: Math.min(a.start,b.start), end: Math.max(a.end,b.end),
+    source:'manual', confidence:'adjusted', reason,
+  });
+  closeModal(); renderLog(); renderDay(); toast('Merged');
+}
+
+/* ─── backfill ─── */
+function openBackfill(pre){
+  pre = pre||{};
+  const today = localISODate();
+  const durDefault = pre.duration ? (pre.duration>=3600000 ? (pre.duration/3600000)+'h' : Math.round(pre.duration/60000)+'m') : '1h';
+  const lastCode = localStorage.getItem(LS_LAST_STREAM)||'';
+  const last = streamByCode(lastCode);
+  openModal(`
+    <h2>Quick add</h2>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Duration-first. Marked reconstructed.</p>
+    <div class="field"><label>Stream</label>
+      <select id="bf-stream"><option value="">— personal / no stream —</option>${streamOptions(last?last.id:null)}</select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>How long</label><input id="bf-dur" value="${durDefault}" placeholder="2h / 45m / 1h30"></div>
+      <div class="field"><label>Day</label>
+        <select id="bf-day">
+          <option value="${today}">Today</option>
+          <option value="${localISODate(new Date(Date.now()-86400000))}">Yesterday</option>
+          <option value="pick">Pick date…</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" id="bf-date-wrap" style="display:none"><label>Date</label><input type="date" id="bf-date" value="${today}"></div>
+    <div class="field-row">
+      <div class="field"><label>Start (optional nudge)</label><input type="time" id="bf-start" value="${pre.start?fmtTime24(pre.start):'09:00'}"></div>
+      <div class="field"><label>Billable</label>
+        <select id="bf-bill"><option value="0">No</option><option value="1">Yes — I confirm</option></select>
+      </div>
+    </div>
+    <div class="field"><label>Note (offered — useful a month later)</label><textarea id="bf-note" placeholder="what was this?"></textarea></div>
+    <div class="field"><label>Reason</label><input id="bf-reason" value="${pre.fromGap?'gap fill':'backfill'}"></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="saveBackfill()">Add time</button>
+      <button onclick="closeModal()">Cancel</button>
+    </div>
+  `);
+  document.getElementById('bf-day').onchange = function(){
+    document.getElementById('bf-date-wrap').style.display = this.value==='pick'?'block':'none';
+  };
+  document.getElementById('bf-stream').onchange = function(){
+    const st = streamById(this.value);
+    // Default billable from stream, but never sticky — reset each open; user must pick Yes to bill
+    document.getElementById('bf-bill').value = '0';
+  };
+}
+function fmtTime24(ts){
+  const d=new Date(ts);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function saveBackfill(){
+  const dur = parseDur(document.getElementById('bf-dur').value);
+  if(!dur){ toast('Could not parse duration'); return; }
+  let day = document.getElementById('bf-day').value;
+  if(day==='pick') day = document.getElementById('bf-date').value;
+  if(!day){ toast('Pick a day'); return; }
+  const dayDate = new Date(day+'T12:00:00');
+  const today = new Date(); today.setHours(12,0,0,0);
+  if(dayDate.getTime() > today.getTime()+86400000){ toast('Future dates rejected'); return; }
+  const ageDays = (today - dayDate)/86400000;
+  if(ageDays > BACKFILL_CONFIRM_DAYS){
+    if(!confirm(`This is ${Math.floor(ageDays)} days ago. Confirm backfill?`)) return;
+  }
+  const [hh,mm] = document.getElementById('bf-start').value.split(':').map(Number);
+  const start = new Date(day+'T00:00:00'); start.setHours(hh,mm,0,0);
+  const end = new Date(start.getTime()+dur);
+  const stream_id = document.getElementById('bf-stream').value || null;
+  const billable = document.getElementById('bf-bill').value==='1';
+  if(billable && !confirm('Create a BILLABLE reconstructed entry? A false billable hour is worse than a missing one.')) return;
+  const note = document.getElementById('bf-note').value;
+  const reason = document.getElementById('bf-reason').value.trim() || 'backfill';
+  const entry = insertEntry({
+    activity: stream_id ? 'billing' : 'work',
+    stream_id, billable, note, start: start.getTime(), end: end.getTime(),
+    source: 'backfill', confidence: 'reconstructed', reason,
+  });
+  if(entry){ closeModal(); renderLog(); renderDay(); renderReal(); toast('Backfill added · reconstructed'); }
+}
+
+function openMultiBackfill(){
+  const rows = [0,1,2].map(i=>`
+    <div class="field-row" style="margin-bottom:8px">
+      <div class="field"><label>Day</label><input type="date" id="mb-d${i}" value="${localISODate(new Date(Date.now()-i*86400000))}"></div>
+      <div class="field"><label>Duration</label><input id="mb-dur${i}" placeholder="2h"></div>
+    </div>
+    <div class="field"><label>Stream</label><select id="mb-s${i}"><option value="">—</option>${streamOptions(null)}</select></div>
+    <div class="field"><label>Note</label><input id="mb-n${i}"></div>
+    <hr style="border:0;border-top:0.5px solid var(--border);margin:10px 0">
+  `).join('');
+  openModal(`
+    <h2>Multi-day backfill</h2>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Three rows — all reconstructed. Billable stays off.</p>
+    <div id="view-backfill" class="ipad-wide">${rows}</div>
+    <div class="field"><label>Reason</label><input id="mb-reason" value="multi-day backfill"></div>
+    <div class="modal-actions">
+      <button class="primary" onclick="saveMultiBackfill()">Add all</button>
+      <button onclick="closeModal()">Cancel</button>
+    </div>
+  `);
+}
+function saveMultiBackfill(){
+  const reason = document.getElementById('mb-reason').value.trim() || 'multi-day backfill';
+  let n=0;
+  for(let i=0;i<3;i++){
+    const dur = parseDur(document.getElementById('mb-dur'+i).value);
+    const day = document.getElementById('mb-d'+i).value;
+    const stream_id = document.getElementById('mb-s'+i).value || null;
+    if(!dur || !day) continue;
+    const dayDate = new Date(day+'T12:00:00');
+    if(dayDate.getTime() > Date.now()+86400000){ toast('Future date skipped'); continue; }
+    const start = new Date(day+'T09:00:00');
+    const end = new Date(start.getTime()+dur);
+    const note = document.getElementById('mb-n'+i).value;
+    if(insertEntry({
+      activity: stream_id?'billing':'work', stream_id, billable:false, note,
+      start:start.getTime(), end:end.getTime(),
+      source:'backfill', confidence:'reconstructed', reason,
+    })) n++;
+  }
+  closeModal(); renderLog(); renderDay(); renderReal();
+  toast(n?`${n} reconstructed entries added`:'Nothing to add');
+}
+
+/* ─── export ─── */
+function periodEntries(period){
   const now=new Date();
-  return S.entries.filter(e=>{
+  return currentEntries().filter(e=>{
     const d=new Date(e.start);
     if(period==='day') return d.toDateString()===now.toDateString();
-    if(period==='week'){ const w=new Date(now); w.setDate(now.getDate()-6); return d>=w; }
+    if(period==='week'){ const w=new Date(now); w.setDate(now.getDate()-6); w.setHours(0,0,0,0); return d>=w; }
     return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
   });
 }
-
-function renderStats() {
+function renderStats(){
   ['day','week','month'].forEach(p=>{
     const rows=periodEntries(p);
     const total=rows.reduce((a,e)=>a+e.duration,0);
@@ -289,54 +1264,161 @@ function renderStats() {
       <div class="stat-box"><div class="stat-val">${fmtDur(total)||'0m'}</div><div class="stat-lbl">Total tracked</div></div>
       <div class="stat-box"><div class="stat-val">${rows.length}</div><div class="stat-lbl">Entries (${acts} activities)</div></div>`;
   });
+  const sel=document.getElementById('ts-stream');
+  sel.innerHTML = S.streams.filter(s=>s.kind==='client').map(s=>`<option value="${s.code}">${s.code} — ${s.client_local||s.client}</option>`).join('');
+  const now=new Date();
+  document.getElementById('ts-from').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  document.getElementById('ts-to').value = localISODate(now);
+  const cfg=syncConfig();
+  document.getElementById('cfg-api').value = cfg.api||'';
+  document.getElementById('cfg-token').value = cfg.token||'';
 }
-
-function exportCSV(period) {
+function exportCSV(period){
   const rows=periodEntries(period);
   if(!rows.length){ alert('No entries for this period.'); return; }
-  const lines=['Date,Day,Start,End,Activity,Sub-activity,Duration (min)'];
+  const lines=['Date,Day,Start,End,Activity,Sub-activity,Stream,Billable,Confidence,Duration (min)'];
   rows.forEach(e=>{
     const d=new Date(e.start);
-    lines.push([d.toLocaleDateString(),d.toLocaleDateString(undefined,{weekday:'long'}),fmtTime(e.start),fmtTime(e.end),e.label,e.sub||'',(e.duration/60000).toFixed(1)].join(','));
+    lines.push([d.toLocaleDateString(),d.toLocaleDateString(undefined,{weekday:'long'}),fmtTime(e.start),fmtTime(e.end),e.label,e.sub||'',e.stream_code||'',e.billable?'yes':'no',e.confidence,(e.duration/60000).toFixed(1)].join(','));
   });
-  // Add totals per activity
   lines.push('','Activity,,,,,Total (min)');
   const totals={};
   rows.forEach(e=>{ totals[e.label]=(totals[e.label]||0)+e.duration; });
   Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([l,d])=>lines.push(`${l},,,,,(${(d/60000).toFixed(1)})`));
-  const csv=lines.join('\n');
+  downloadCSV(lines.join('\n'), `timetracker-${period}-${localISODate()}.csv`);
+}
+function exportTimesheet(){
+  const code = document.getElementById('ts-stream').value;
+  const from = document.getElementById('ts-from').value;
+  const to = document.getElementById('ts-to').value;
+  const fromTs = new Date(from+'T00:00:00').getTime();
+  const toTs = new Date(to+'T23:59:59').getTime();
+  const rows = currentEntries().filter(e=>{
+    const match = e.stream_code===code || (streamById(e.stream_id)?.code===code);
+    return match && e.start>=fromTs && e.start<=toTs;
+  }).sort((a,b)=>a.start-b.start);
+  if(!rows.length){ alert('No entries for this engagement/period.'); return; }
+  const st = streamByCode(code);
+  const lines = [
+    `Engagement,${st? (st.client_local||st.client) : code}`,
+    `Code,${code}`,
+    `Fee EUR,${st?.fee_amount ?? ''}`,
+    `Period,${from} to ${to}`,
+    '',
+    'Date,Start,End,Hours,Billable,Confidence,Source,Note,Reason',
+  ];
+  let timed=0, recon=0, total=0;
+  rows.forEach(e=>{
+    const h=e.duration/3600000; total+=h;
+    if(e.confidence==='timed') timed+=h; else recon+=h;
+    lines.push([
+      localISODate(new Date(e.start)), fmtTime(e.start), fmtTime(e.end),
+      h.toFixed(2), e.billable?'yes':'no', e.confidence, e.source,
+      csvEsc(e.note||''), csvEsc(e.reason||'')
+    ].join(','));
+  });
+  lines.push('');
+  lines.push(`Total hours,${total.toFixed(2)}`);
+  lines.push(`Timed hours,${timed.toFixed(2)}`);
+  lines.push(`Reconstructed/adjusted hours,${recon.toFixed(2)}`);
+  lines.push(`Reconstructed pct,${total?((recon/total)*100).toFixed(1):0}%`);
+  if(st?.fee_amount!=null && total>0) lines.push(`Effective hourly EUR,${(st.fee_amount/total).toFixed(2)}`);
+  downloadCSV(lines.join('\n'), `timesheet-${code}-${from}_${to}.csv`);
+}
+function csvEsc(s){ if(/[",\n]/.test(s)) return '"'+s.replace(/"/g,'""')+'"'; return s; }
+function downloadCSV(csv, name){
   const blob=new Blob([csv],{type:'text/csv'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download=`timetracker-${period}-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
   URL.revokeObjectURL(url);
 }
 
-function switchTab(tab) {
+/* ─── tabs ─── */
+function switchTab(tab){
   S.tab=tab;
-  document.querySelectorAll('#hdr-tabs button').forEach((b,i)=>{ b.classList.toggle('active',['grid','log','export'][i]===tab); });
-  document.getElementById('view-grid').classList.toggle('hide',tab!=='grid');
-  document.getElementById('view-log').classList.toggle('show',tab==='log');
-  document.getElementById('view-export').classList.toggle('show',tab==='export');
+  document.querySelectorAll('#hdr-tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('view-grid').classList.toggle('hide', tab!=='grid');
+  ['log','day','real','export'].forEach(t=>{
+    document.getElementById('view-'+t).classList.toggle('show', tab===t);
+  });
   if(tab==='log') renderLog();
+  if(tab==='day') renderDay();
+  if(tab==='real') renderReal();
   if(tab==='export') renderStats();
 }
 
-function clockTick() {
-  document.getElementById('hdr-clock') && (document.getElementById('hdr-clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+/* ─── deep link ?start=CODE ─── */
+function handleDeepLink(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('start');
+  const day = params.get('day');
+  if(day==='1' || params.get('view')==='day'){ switchTab('day'); }
+  if(!code) return;
+  const stream = streamByCode(code);
+  const banner = document.getElementById('deep-confirm');
+  if(!stream){
+    banner.textContent = `Unknown stream: ${code}`;
+    banner.classList.add('show');
+    return;
+  }
+  startBillingStream(stream);
+  banner.innerHTML = `Started <strong>${stream.code}</strong> — ${stream.client_local||stream.client||stream.name}
+    <button class="tool-btn" style="margin-left:8px" onclick="document.getElementById('deep-confirm').classList.remove('show')">OK</button>`;
+  banner.classList.add('show');
+  // Clean URL without reload
+  history.replaceState({}, '', location.pathname);
 }
 
-// Add clock to header
-const clk=document.createElement('span');
-clk.id='hdr-clock'; clk.style.cssText='font-size:13px;color:#555;font-variant-numeric:tabular-nums;';
-document.getElementById('hdr').appendChild(clk);
-setInterval(clockTick,1000); clockTick();
+/* ─── EOD nudge (in-app; Shortcuts automation opens ?view=day) ─── */
+function checkEodNudge(){
+  const key = 'tt_eod_'+localISODate();
+  if(localStorage.getItem(key)) return;
+  const info = gapsForDay(new Date());
+  if(!info.bounds) return;
+  const unaccounted = info.window - info.accounted;
+  if(unaccounted > EOD_UNACCOUNTED_THRESHOLD_H*3600000){
+    const hour = new Date().getHours();
+    if(hour >= 19){
+      if(confirm(`Unaccounted ${fmtDurH(unaccounted)}h today. Open Day view?`)){
+        switchTab('day');
+      }
+      localStorage.setItem(key, '1');
+    }
+  }
+}
 
+/* ─── boot ─── */
+load();
 buildGrid();
+updateSyncPill();
+if(S.active && S.startTime){
+  // resume UI
+  const act=actById(S.active);
+  const stream=S.activeStream?streamById(S.activeStream):null;
+  document.getElementById('tbar-dot').classList.add('on');
+  document.getElementById('tbar-stop').classList.add('show');
+  const billBtn=document.getElementById('tbar-billable');
+  if(stream){ billBtn.classList.add('show'); billBtn.classList.toggle('on',S.activeBillable); billBtn.textContent=S.activeBillable?'Billable':'Not billable'; }
+  const label=()=>{
+    const streamBit=stream?` · ${stream.code}`:(S.activeSub?` · ${S.activeSub}`:'');
+    const billBit=stream?(S.activeBillable?' · BILL':' · non-bill'):'';
+    return `${act.icon} ${act.label}${streamBit}${billBit} · ${fmtDur(Date.now()-S.startTime)}`;
+  };
+  S.timerInt=setInterval(()=>{ document.getElementById('tbar-text').textContent=label(); },1000);
+  document.getElementById('tbar-text').textContent=label();
+  document.querySelector(`[data-id="${S.active}"]`)?.classList.add('is-active');
+}
+handleDeepLink();
+refreshStreamsFromApi();
+setInterval(()=>flushSync(false), 30000);
+window.addEventListener('online', ()=>flushSync(false));
+setTimeout(checkEodNudge, 2000);
 
-// Register service worker
-if('serviceWorker' in navigator) {
+if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.addEventListener('message', (e)=>{
+    if(e.data && e.data.type==='FLUSH_SYNC') flushSync(false);
+  });
 }
 </script>
 </body>

@@ -1,0 +1,17 @@
+# Example compose fragment — merge into the existing Docker fleet on the Ubuntu VM.
+# Do not publish 8787 on the public interface; Tailscale only.
+
+services:
+  tt-sync:
+    build: ./server
+    container_name: tt-sync
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${TT_DATABASE_URL}
+      TT_BEARER_TOKEN: ${TT_BEARER_TOKEN}
+      PORT: "8787"
+      TZ: Europe/Sofia
+    ports:
+      - "8787:8787"
+    # Prefer attaching to the same user-defined network as postgres_audit:
+    # networks: [audit_net]

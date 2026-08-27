@@ -1,0 +1,86 @@
+{
+  "name": "Aegis_Realization_Notion_In",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 6 }]
+        }
+      },
+      "id": "schedule-in",
+      "name": "Every 6 hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "9a26c585-88e5-434d-86e1-7804e1fe2121",
+        "returnAll": true,
+        "options": {}
+      },
+      "id": "notion-engagements",
+      "name": "Fetch Engagements",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [460, 300],
+      "credentials": {
+        "notionApi": {
+          "id": "notion-aegis",
+          "name": "Aegis Notion"
+        }
+      },
+      "notes": "Aegis lane — Notion Audit OS. Credential name is a placeholder; wire to the existing Aegis Notion credential in n8n. Do not use Marty Party credentials."
+    },
+    {
+      "parameters": {
+        "jsCode": "const out = [];\nfor (const item of items) {\n  const p = item.json;\n  const props = p.properties || p;\n  const title =\n    props.Name?.title?.[0]?.plain_text ||\n    props['Engagement Name']?.title?.[0]?.plain_text ||\n    props.Name?.title?.[0]?.text?.content ||\n    p.name ||\n    'Engagement';\n  const client =\n    props.Client?.rich_text?.[0]?.plain_text ||\n    props.Client?.select?.name ||\n    props['Client Name']?.rich_text?.[0]?.plain_text ||\n    title;\n  const fiscal =\n    props['Fiscal Year']?.number ||\n    props.FY?.number ||\n    2025;\n  const fee =\n    props.Fee?.number ??\n    props['Fee Amount']?.number ??\n    props['Fee (EUR)']?.number ??\n    null;\n  const codeRaw =\n    props.Code?.rich_text?.[0]?.plain_text ||\n    props.Code?.select?.name ||\n    null;\n  // Derive a stable code if Notion has none\n  const code =\n    codeRaw ||\n    String(client)\n      .toUpperCase()\n      .replace(/[^A-Z0-9]+/g, '-')\n      .replace(/^-|-$/g, '')\n      .slice(0, 12) + '-' + String(fiscal).slice(-2);\n  out.push({\n    json: {\n      notion_page_id: p.id || p.page_id,\n      name: title,\n      client_name: client,\n      code,\n      fiscal_year: fiscal,\n      fee_amount: fee,\n      fee_currency: 'EUR',\n      billing_model: 'fixed',\n      kind: 'client',\n      billable_default: true,\n      status: 'active',\n    },\n  });\n}\nreturn out;"
+      },
+      "id": "map-engagements",
+      "name": "Map to streams",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO tt.client (name, notion_page_id)\nVALUES ('{{ $json.client_name.replace(/'/g, \"''\") }}', NULL)\nON CONFLICT DO NOTHING;\n\nINSERT INTO tt.client (name)\nSELECT '{{ $json.client_name.replace(/'/g, \"''\") }}'\nWHERE NOT EXISTS (\n  SELECT 1 FROM tt.client WHERE name = '{{ $json.client_name.replace(/'/g, \"''\") }}'\n);\n\nINSERT INTO tt.stream (\n  kind, client_id, name, code, notion_page_id, fiscal_year,\n  fee_amount, fee_currency, billing_model, billable_default, status, sort_hint\n)\nSELECT\n  'client',\n  c.id,\n  '{{ $json.name.replace(/'/g, \"''\") }}',\n  '{{ $json.code.replace(/'/g, \"''\") }}',\n  '{{ $json.notion_page_id }}',\n  {{ $json.fiscal_year }},\n  {{ $json.fee_amount === null || $json.fee_amount === undefined ? 'NULL' : $json.fee_amount }},\n  'EUR',\n  'fixed',\n  true,\n  'active',\n  now()\nFROM tt.client c\nWHERE c.name = '{{ $json.client_name.replace(/'/g, \"''\") }}'\nON CONFLICT (notion_page_id) DO UPDATE SET\n  name = EXCLUDED.name,\n  fee_amount = COALESCE(EXCLUDED.fee_amount, tt.stream.fee_amount),\n  fiscal_year = EXCLUDED.fiscal_year,\n  status = 'active';\n\n-- Also upsert on code when notion_page_id was null historically\nUPDATE tt.stream s SET\n  notion_page_id = COALESCE(s.notion_page_id, '{{ $json.notion_page_id }}'),\n  fee_amount = COALESCE({{ $json.fee_amount === null || $json.fee_amount === undefined ? 'NULL' : $json.fee_amount }}, s.fee_amount)\nWHERE s.code = '{{ $json.code.replace(/'/g, \"''\") }}';",
+        "options": {}
+      },
+      "id": "postgres-upsert",
+      "name": "Upsert stream",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [940, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      },
+      "notes": "Same AuditOS Postgres credential pattern as Marty_Party — but this workflow is Aegis. Internal/admin streams are NOT managed here."
+    }
+  ],
+  "connections": {
+    "Every 6 hours": {
+      "main": [[{ "node": "Fetch Engagements", "type": "main", "index": 0 }]]
+    },
+    "Fetch Engagements": {
+      "main": [[{ "node": "Map to streams", "type": "main", "index": 0 }]]
+    },
+    "Map to streams": {
+      "main": [[{ "node": "Upsert stream", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [{ "name": "Aegis" }, { "name": "Realization" }],
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

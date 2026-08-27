@@ -1,0 +1,196 @@
+{
+  "name": "Aegis_Realization_Hours_Out",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "id": "schedule-out",
+      "name": "Hourly roll-up",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Recompute Actual Hours per Notion engagement from tt.entry_current.\n-- Corrections mark tt.notion_dirty; we always recompute (never increment).\nWITH dirty AS (\n  SELECT DISTINCT stream_id\n  FROM tt.notion_dirty\n  WHERE cleared_at IS NULL\n  UNION\n  -- Also refresh any client stream touched in the last 2 hours\n  SELECT DISTINCT stream_id\n  FROM tt.time_entry\n  WHERE entered_at > now() - interval '2 hours'\n    AND stream_id IS NOT NULL\n),\ntotals AS (\n  SELECT\n    s.id AS stream_id,\n    s.notion_page_id,\n    s.code,\n    ROUND(COALESCE(SUM(t.duration_s), 0) / 3600.0, 2) AS actual_hours\n  FROM tt.stream s\n  LEFT JOIN tt.entry_current t ON t.stream_id = s.id\n  WHERE s.kind = 'client'\n    AND s.notion_page_id IS NOT NULL\n    AND (\n      s.id IN (SELECT stream_id FROM dirty WHERE stream_id IS NOT NULL)\n      OR NOT EXISTS (SELECT 1 FROM tt.notion_dirty LIMIT 1)\n    )\n  GROUP BY s.id\n)\nSELECT * FROM totals;",
+        "options": {}
+      },
+      "id": "pg-totals",
+      "name": "Recompute hours",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [460, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "has-page",
+              "leftValue": "={{ $json.notion_page_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-notion",
+      "name": "Has Notion page?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Find Notion task pages related to this engagement that carry Actual Hours.\n-- Engagement-level roll-up: sum onto a synthetic key stored as stream code in Task Name prefix,\n-- OR update all open tasks under the engagement proportionally.\n-- Practical approach used here: write the engagement total onto EVERY related task's\n-- Actual Hours is wrong. Instead we store the stream total on a dedicated rollup row\n-- if one exists (Task Name = 'Hours rollup'), else skip task writes and only clear dirty.\n-- Owner: prefer writing Actual Hours on tasks via engagement relation filter in Notion node below.\nSELECT\n  '{{ $json.notion_page_id }}'::text AS engagement_page_id,\n  {{ $json.actual_hours }}::numeric AS actual_hours,\n  '{{ $json.stream_id }}'::uuid AS stream_id,\n  '{{ $json.code }}'::text AS code;",
+        "options": {}
+      },
+      "id": "prep-notion",
+      "name": "Prep Notion payload",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [940, 220],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "c1dec314-ae83-43e8-ab9f-db98a3c6c6ad",
+        "returnAll": true,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Engagement|relation",
+              "condition": "contains",
+              "relationValue": "={{ $('Recompute hours').item.json.notion_page_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "notion-tasks",
+      "name": "Tasks for engagement",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1180, 220],
+      "credentials": {
+        "notionApi": {
+          "id": "notion-aegis",
+          "name": "Aegis Notion"
+        }
+      },
+      "notes": "Property name 'Engagement' must match the Tasks DB relation. Adjust if the live schema uses a different label."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Distribute engagement total across open billable tasks by Estimated Hours weight.\n// Idempotent: sets Actual Hours to the recomputed share, never adds a delta.\nconst engagementHours = Number($('Recompute hours').item.json.actual_hours || 0);\nconst tasks = items.map(i => i.json);\nconst open = tasks.filter(t => {\n  const status = t.property_status || t.Status || t.properties?.Status?.status?.name || t.properties?.Status?.select?.name;\n  const billable = t.property_billable ?? t.properties?.Billable?.checkbox ?? true;\n  return status !== 'done' && billable !== false;\n});\nconst est = open.map(t => Number(t.properties?.['Estimated Hours']?.number || t['Estimated Hours'] || 1));\nconst estSum = est.reduce((a,b)=>a+b, 0) || open.length || 1;\nreturn open.map((t, idx) => {\n  const share = engagementHours * ((est[idx] || 1) / estSum);\n  return {\n    json: {\n      page_id: t.id || t.page_id,\n      actual_hours: Math.round(share * 100) / 100,\n      stream_id: $('Recompute hours').item.json.stream_id,\n    },\n  };\n});"
+      },
+      "id": "distribute",
+      "name": "Distribute hours",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 220]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": "={{ $json.page_id }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Actual Hours|number",
+              "numberValue": "={{ $json.actual_hours }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "notion-update",
+      "name": "Set Actual Hours",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1660, 220],
+      "credentials": {
+        "notionApi": {
+          "id": "notion-aegis",
+          "name": "Aegis Notion"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE tt.notion_dirty\nSET cleared_at = now()\nWHERE stream_id = '{{ $('Recompute hours').item.json.stream_id }}'\n  AND cleared_at IS NULL;",
+        "options": {}
+      },
+      "id": "clear-dirty",
+      "name": "Clear dirty flags",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1900, 220],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-audit-os",
+          "name": "AuditOS Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Hourly roll-up": {
+      "main": [[{ "node": "Recompute hours", "type": "main", "index": 0 }]]
+    },
+    "Recompute hours": {
+      "main": [[{ "node": "Has Notion page?", "type": "main", "index": 0 }]]
+    },
+    "Has Notion page?": {
+      "main": [
+        [{ "node": "Prep Notion payload", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Prep Notion payload": {
+      "main": [[{ "node": "Tasks for engagement", "type": "main", "index": 0 }]]
+    },
+    "Tasks for engagement": {
+      "main": [[{ "node": "Distribute hours", "type": "main", "index": 0 }]]
+    },
+    "Distribute hours": {
+      "main": [[{ "node": "Set Actual Hours", "type": "main", "index": 0 }]]
+    },
+    "Set Actual Hours": {
+      "main": [[{ "node": "Clear dirty flags", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "Aegis" }, { "name": "Realization" }],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "notes": "Aegis only. Recompute from tt.entry_current — never increment. Corrections reach Notion because dirty periods force a full recompute."
+  }
+}

@@ -1,103 +1,50 @@
-# Time Tracker PWA — Installation Guide
+# Time Tracker PWA — Realization
+
+Engagement-aware time tracking for Easy Ventures. Single-file PWA (no build step),
+Postgres `tt` schema as system of record, Tailscale sync API, Aegis n8n Notion roll-up.
 
 ## What's in this folder
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `index.html` | The entire app (all-in-one) |
-| `manifest.json` | PWA metadata (name, icon, colors) |
-| `sw.js` | Service worker — enables offline use |
-| `icon-192.svg` | App icon (home screen) |
-| `icon-512.svg` | App icon (splash screen) |
+| `index.html` | The entire PWA — Track, Log, Day, Real, Export |
+| `manifest.json` / `sw.js` | PWA metadata + offline cache |
+| `icon-*.svg` / `icons/` | App icon + per-stream Home Screen glyphs |
+| `sql/` | Forward migration, rollback, seed streams |
+| `server/` | Sync API (`POST /api/entries`, realization, day gaps) |
+| `workflows/` | Aegis Notion in + hours out (not Marty Party) |
+| `docs/` | Schema, sync, migration, iOS Shortcuts recipes |
 
----
+## Day-one use (no server yet)
 
-## Option A — Host on GitHub Pages (free, 5 minutes)
+1. Open `index.html` (or host the folder).
+2. Tap **Billing** → starts last-used stream; hold → stream picker (clients above the divider, internal/admin below).
+3. Log / Day / Real tabs work fully offline.
+4. Existing `tt_v1` data migrates to `tt_v2` automatically.
 
-1. Create a free account at github.com
-2. Create a new repository, name it `timetracker`, set it to **Public**
-3. Upload all 5 files
-4. Go to Settings → Pages → Source: **main branch / root**
-5. Your app is live at `https://yourusername.github.io/timetracker`
-6. Open that URL on your phone → "Add to Home Screen"
+## Full stack
 
----
+See:
 
-## Option B — Host on Netlify (free, 3 minutes, drag & drop)
+- [`docs/schema.md`](docs/schema.md) — apply `sql/001` + `sql/002`, fill fees from `Договори_одит_2024` (EUR)
+- [`docs/sync-api.md`](docs/sync-api.md) — deploy `server/`, paste Tailscale URL + bearer token in Export
+- [`docs/migration.md`](docs/migration.md) — localStorage + Notion credential wiring
+- [`docs/ios-shortcuts.md`](docs/ios-shortcuts.md) — deep links, Shortcuts, Siri, EOD nudge
 
-1. Go to netlify.com, create a free account
-2. Drag and drop this entire folder onto the Netlify dashboard
-3. You get a URL like `https://random-name.netlify.app`
-4. Open on phone → Add to Home Screen
+## Interaction model (unchanged)
 
----
+- **Single tap** an activity → starts timer immediately  
+  (Billing → last-used stream)
+- **Hold 0.6 s** → sub-activity or stream picker
+- Corrections supersede; deletions void; both need a reason
+- Reconstructed / adjusted hours are labelled everywhere
 
-## Option C — Self-host on a VPS (Nginx)
+## Realization view choice
 
-```bash
-# Install Nginx
-sudo apt update && sudo apt install nginx -y
+Built as the **Real** tab in the PWA (plain JS, same file). Weekly effective-hourly
+and utilization belong on the phone he already opens — Metabase can still point at
+`tt.realization` / `tt.utilization` for larger screens later.
 
-# Copy files
-sudo mkdir -p /var/www/timetracker
-sudo cp index.html manifest.json sw.js icon-192.svg icon-512.svg /var/www/timetracker/
+## Bot lane
 
-# Create Nginx config
-sudo nano /etc/nginx/sites-available/timetracker
-```
-
-Paste this config:
-```nginx
-server {
-    listen 80;
-    server_name your-server-ip;
-    root /var/www/timetracker;
-    index index.html;
-    location / { try_files $uri $uri/ /index.html; }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/timetracker /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-```
-
-For HTTPS (required for PWA install prompt on Android):
-```bash
-sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d yourdomain.com
-```
-
----
-
-## Install on iPhone
-
-1. Open the URL in **Safari** (must be Safari, not Chrome)
-2. Tap the **Share** button (box with arrow)
-3. Tap **Add to Home Screen**
-4. Tap **Add** — done!
-
-## Install on Android
-
-1. Open the URL in **Chrome**
-2. Tap the **three-dot menu**
-3. Tap **Add to Home Screen** (or an install banner may appear automatically)
-4. Tap **Install** — done!
-
----
-
-## How the app works
-
-- **Single tap** an activity → starts timer immediately
-- **Hold 0.6 seconds** → opens sub-activity picker
-- All data is saved in your phone's localStorage (stays on device)
-- Works fully offline after first load
-- **Log tab** → browse all past entries
-- **Export tab** → download daily / weekly / monthly CSV files
-
----
-
-## Data & Privacy
-
-All data is stored locally on your device using `localStorage`.
-Nothing is sent to any server. To back up your data, use the CSV export regularly.
+This project is **Aegis**. Marty Party must not touch it.
