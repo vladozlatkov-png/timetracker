@@ -178,8 +178,7 @@ create table tt.stream (
   notion_page_id text unique,
   fiscal_year    int,
   fee_amount     numeric(12,2),              -- client streams only, from Договори_одит_2024
-  fee_currency   text default 'EUR'          -- BGN for contracts before 2026-01-01, EUR after
-                 check (fee_currency in ('EUR','BGN')),
+  fee_currency   text not null default 'EUR', -- single-currency system; see note below
   billing_model  text not null default 'fixed'
                  check (billing_model in ('fixed','tm')),
   budget_hours   numeric(8,2),               -- his own estimate, for burn
@@ -304,16 +303,15 @@ group by 1 order by 1 desc;
 - **Personal activities keep working.** `stream_id` is nullable. Rest, Train, Study and Pets sync
   too — they are the control group, and the Study Cockpit (the next project) will reuse this exact
   table with a subject stream rather than a new one.
-- **Currency is a column, and both values are real.** Bulgaria adopted the euro on 2026-01-01.
-  Contracts signed before that date are denominated in BGN; everything from 2026 is EUR. So the
-  live engagement set spans both. Store the fee in its original currency, keep `fee_currency`, and
-  normalise to EUR for comparison at the irrevocable conversion rate (confirm the rate with the
-  owner rather than hard-coding a remembered one). Never overwrite an original BGN fee with a
-  converted figure — the contract says what it says.
-- **Two billing models.** Most engagements are fixed-fee; some are time-and-materials. For a fixed
-  fee, realization is fee ÷ hours. For T&M the fee *is* hours × rate, so effective hourly rate is
-  circular and meaningless — show budget variance instead. `tt.realization` must exclude or
-  separately handle `billing_model = 'tm'` rather than reporting a nonsense rate for it.
+- **This is a single-currency system. Every fee is in EUR.** All contracts are denominated in
+  euro, the FY2025 audits included, regardless of when they were signed. There is **no BGN
+  anywhere**, and therefore no conversion logic, no dual display, and no FX table to maintain.
+  The `fee_currency` column is retained as a one-line hedge against a future non-EUR client — it is
+  not a feature. Do not build currency handling on top of it.
+- **Two billing models in the schema, one in the data.** Every engagement today is fixed-fee, so
+  realization is always fee ÷ hours for now. Time-and-materials engagements are expected *after*
+  this system exists — the column goes in now so that arrival is a config change rather than a
+  migration, but the T&M variance view is deferred (see §13). Seed every stream as `fixed`.
 - **Billable is a per-entry decision, including on internal streams.** Internal work is
   occasionally chargeable, so `kind='internal'` must not hard-force `billable=false`.
   `billable_default` stays false for internal streams and the flag is an explicit per-session
@@ -410,12 +408,12 @@ against his own `budget_hours`, and a clear flag when an engagement crosses the 
 stops being worth doing at that fee. Sort by effective hourly ascending — the worst deal first, on
 purpose.
 
-Time-and-materials engagements appear in the same table but with budget variance in place of the
-rate, clearly marked. Do not compute an effective hourly rate for them; it would just restate the
-billing rate back at him.
+There are no time-and-materials engagements yet, so **do not build the T&M variance view now** —
+there would be no data to test it against. Make `tt.realization` filter on
+`billing_model = 'fixed'` so that when the first T&M stream appears it is excluded rather than
+reported as a nonsense hourly rate. Building the variance view is a later, separate step.
 
-Where fees span BGN and EUR, show the original alongside the EUR-normalised figure. A sorted list
-that silently mixes two currencies is worse than no list.
+All fees are EUR. Do not add currency selectors, conversion, or a currency column to any report.
 
 Show `reconstructed_pct` alongside each engagement. An effective hourly rate computed from 80%
 reconstructed time is a different claim from one computed from timed work, and the screen must say
@@ -479,8 +477,21 @@ between them called out with their duration. Tapping a gap opens the quick-add p
 that gap's start, end and duration, so filling it is one tap plus a stream. Show a single honest
 figure at the top: hours accounted for, hours unaccounted.
 
-Gaps are computed against a configurable working window (a default of roughly 08:00–20:00 local is
-a reasonable starting point — confirm with the owner) so that sleep is not reported as a gap.
+Gaps are computed against a configurable working window, so that sleep is not reported as a gap:
+
+| Day | Window |
+|---|---|
+| Monday–Friday | **08:00–21:00** local |
+| Saturday | **six working hours** — window defaults to 10:00–16:00, see §13 |
+| Sunday | **none** — no gap detection at all |
+
+Put these in one config object at the top of the script, not scattered through the gap logic. He
+will change them.
+
+**Any** entry counts as accounted time, not just working streams — lunch logged as Eat, or a nap
+logged as Rest, closes a gap exactly as billable work does. The Day view reports time with *no
+entry at all*, which is the only thing he can actually act on. A thirteen-hour weekday window works
+precisely because Eat, Care and Rest already fill most of what is not work.
 
 Add one **end-of-day nudge** — a notification or a Shortcuts automation — that opens the Day view
 if unaccounted time exceeds a threshold. One per day, dismissible, never nagging. This is the single
@@ -597,34 +608,40 @@ Each step must be independently shippable and useful the day it lands.
 
 ## 13. Decisions taken
 
-Answered by the owner, 26 Aug 2026. These are settled — build to them rather than re-asking.
+Answered by the owner, 26–27 Aug 2026. These are settled — build to them rather than re-asking.
 
 | # | Question | Decision | What it means here |
 |---|---|---|---|
-| A1 | Fee currency | **EUR going forward; BGN before 2026-01-01** | Both currencies are live in the data. `fee_currency` stays a column, originals are never overwritten, EUR-normalised figures are derived. |
-| A2 | Fixed-fee or T&M | **Mostly fixed, occasional time-and-materials** | `billing_model` column on `tt.stream`, defaulted to `fixed`. T&M streams show budget variance, never an effective hourly rate. |
+| A1 | Fee currency | **EUR, all of it** | Every contract is denominated in euro, the FY2025 audits included, regardless of signature date. No BGN anywhere. No conversion, no dual display, no currency UI. |
+| A2 | Fixed-fee or T&M | **All fixed-fee today; T&M expected later** | Seed every stream as `fixed`. Keep the `billing_model` column so the first T&M engagement is a config change, but do not build the variance view yet. |
 | A3 | Can internal work be billable | **Sometimes — needs a per-entry billable flag** | `kind='internal'` must not force `billable=false`. Timer bar carries a billable toggle that defaults off every session and is never sticky. |
-| B1 | Contractor hours | **Only his own** | No person dimension required. Keep the door open cheaply (see below) but build no UI for it. |
-| B2 | Task-level or stream-level | **Stream-level is enough** | Notion write-back rolls up to the engagement. Keep `task_notion_id` nullable in the schema; build no picker for it. |
+| B1 | Contractor hours | **Only his own** | No person dimension in the UI. Nullable `person` column as a hedge (see below); no picker, no cost rates. |
+| B2 | Task-level or stream-level | **Stream-level is enough** | Notion write-back rolls up to the engagement. Keep `task_notion_id` nullable; build no picker for it. |
 | B3 | Internal and admin streams | **All five as proposed** | Seed `DEV-AUDITOS`, `DEV-REAL`, `DEV-HOMELAB`, `EV-ADMIN`, `BD` exactly as listed in §6. |
-| C1 | Working-day boundaries | **08:00–21:00, narrower at weekends** | Gap detection runs inside that window on weekdays. Weekend window still to be specified — see below. |
+| C1 | Working-day boundaries | **Mon–Fri 08:00–21:00 · Sat six hours · Sun none** | Gap detection per the table in §8.3. Sunday is excluded entirely — never flag a Sunday gap. |
 | C2 | Reconstructed time as evidence | **Acceptable if clearly labelled** | No exclusion filter required on the export, but the timed / reconstructed split must be visible on every surface that shows hours. |
 | C3 | Backfill horizon | **Unlimited, with confirmation beyond a week** | No hard block. Extra confirmation past seven days; future dates still rejected outright. |
 
-### Still open — ask before the step that needs them
+### The one assumption still in play
 
-1. **Which engagements are the time-and-materials ones?** Needed to seed `billing_model`. Until it
-   is answered, seed every stream as `fixed` — the wrong default here overstates realization on a
-   T&M engagement, so do not guess per-client. *(Blocks step 5, not step 1.)*
-2. **What is the weekend window?** "Narrower" is decided, the hours are not. Until answered, run
-   gap detection on weekdays only rather than inventing a weekend range — a wrong window generates
-   phantom gaps every Saturday and trains him to ignore the Day view. *(Blocks step 2.)*
-3. **What conversion rate for BGN fees?** Use the irrevocable rate fixed at euro adoption; confirm
-   the figure with the owner rather than hard-coding one from memory. *(Blocks step 5.)*
+**Which six hours on Saturday?** The owner specified six working hours, which is a duration; gap
+detection needs a window. Assume **10:00–16:00** and put it in the config object with the other
+windows, so changing it is a one-line edit rather than a question. Confirm at first use — a wrong
+Saturday window manufactures phantom gaps every week and trains him to ignore the Day view, which
+is the feature most likely to fix his data quality.
 
-### One cheap hedge worth taking anyway
+Sunday needs no assumption: no detection at all.
 
-B1 says his hours only, and the app should be built that way — no person picker, no cost rates. But
-add a nullable `person` column to `tt.time_entry` now, defaulted to him. It costs nothing today and
-turns "a contractor started booking time" from a migration into a config change. If the owner
-objects, drop it; do not build UI for it either way.
+### Two cheap hedges worth taking anyway
+
+Both cost one column and no UI. Drop either if the owner objects; do not build interface for them.
+
+- **`person` on `tt.time_entry`**, nullable, defaulted to him. B1 says his hours only and the app
+  should be built that way — but this turns "a contractor started booking time" from a migration
+  into a config change.
+- **`billing_model` on `tt.stream`**, defaulted to `fixed`. Same reasoning for the T&M engagements
+  the owner expects to sign once this system exists.
+
+Note that `tt.rate` already carries `target_hourly` per stream. That is what a T&M engagement will
+eventually bill at, so the groundwork for A2's future is in the schema already — it just is not
+wired to anything yet, and should not be.
