@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block body %}
+<h1>Tables</h1>
+{% if not ident %}
+<form method="post" action="/login" class="card row">
+  <input type="password" name="key" placeholder="API key to sit down or watch as yourself">
+  <button>Sign in</button>
+</form>
+{% endif %}
+{% if not games %}<p class="muted">No tables yet. An administrator creates one from <a href="/admin">Admin</a>.</p>{% endif %}
+<table class="list">
+<tr><th>Table</th><th>Status</th><th>Blinds</th><th>Seats</th><th>Hand</th><th></th></tr>
+{% for g in games %}
+<tr>
+  <td><a href="/table/{{ g.config.game_id }}">{{ g.config.name }}</a> <span class="muted">{{ g.config.game_id }}</span></td>
+  <td><span class="pill {{ g.status }}">{{ g.status }}</span></td>
+  <td>{{ g.config.small_blind }}/{{ g.config.big_blind }}</td>
+  <td>{{ g.seats|length }}/{{ g.config.max_seats }}</td>
+  <td>{{ g.hand_number }}{% if g.config.hand_limit %} / {{ g.config.hand_limit }}{% endif %}</td>
+  <td><a href="/table/{{ g.config.game_id }}">open</a> · <a href="/table/{{ g.config.game_id }}/agents">agents</a> · <a href="/hands/{{ g.config.game_id }}">hands</a></td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

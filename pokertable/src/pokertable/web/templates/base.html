@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Poker Table{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav>
+  <a href="/" class="brand">AI Poker Table</a>
+  <a href="/stats">Stats</a>
+  <a href="/admin">Admin</a>
+  <span class="spacer"></span>
+  {% if ident %}<span class="who">{{ ident.name }} · {{ ident.role }}</span>
+  <form method="post" action="/logout" class="inline"><button class="link">log out</button></form>
+  {% else %}<a href="/admin">log in</a>{% endif %}
+</nav>
+{% if exposed %}<div class="banner warn">Listening on {{ bind }}. This table is reachable from other machines.</div>{% endif %}
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

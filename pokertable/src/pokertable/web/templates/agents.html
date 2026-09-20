@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block body %}
+<h1>Agents at {{ game.config.name }}</h1>
+<p><a href="/table/{{ game.config.game_id }}">back to table</a></p>
+<table class="list" id="agents">
+<tr><th>Seat</th><th>Name</th><th>Connector</th><th>Stack</th><th>Net</th><th>Hands</th><th>Decisions</th><th>Timeouts</th><th>Invalid</th><th>Last request</th><th>Latency</th><th>State</th></tr>
+{% for a in agents %}
+<tr><td>{{ a.seat }}</td><td>{{ a.name }}</td><td>{{ a.connector }}</td><td>{{ a.stack }}</td><td>{{ a.net }}</td><td>{{ a.hands_played }}</td><td>{{ a.decisions }}</td><td>{{ a.timeouts }}</td><td>{{ a.invalid_actions }}</td>
+<td>{{ a.last_request_ago ~ 's ago' if a.last_request_ago is not none else 'never' }}</td><td>{{ a.last_latency_ms ~ ' ms' if a.last_latency_ms else '' }}</td>
+<td>{% if a.sitting_out %}sitting out{% elif a.acting %}<b>to act</b>{% else %}idle{% endif %}</td></tr>
+{% endfor %}
+</table>
+<script>setTimeout(() => location.reload(), 3000);</script>
+{% endblock %}

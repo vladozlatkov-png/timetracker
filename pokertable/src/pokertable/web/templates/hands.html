@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}
+<h1>Hands at {{ game.config.name }}</h1>
+<p><a href="/table/{{ game.config.game_id }}">back to table</a> · export
+<a href="/v1/games/{{ game.config.game_id }}/export?format=json">json</a> ·
+<a href="/v1/games/{{ game.config.game_id }}/export?format=csv">csv</a> ·
+<a href="/v1/games/{{ game.config.game_id }}/export?format=txt">txt</a></p>
+<table class="list">
+<tr><th>#</th><th>Board</th><th>Winners</th><th>Payoffs</th></tr>
+{% for h in hands %}
+<tr><td><a href="/hands/{{ game.config.game_id }}/{{ h.hand_id }}">{{ h.hand_id }}</a></td><td class="cards">{{ h.board|join(' ') }}</td>
+<td>{{ h.winners|join(', ') }}</td><td>{% for s, n in h.payoffs.items() %}<span class="{{ 'pos' if n > 0 else 'neg' if n < 0 else '' }}">s{{ s }}: {{ '%+d' % n }}</span> {% endfor %}</td></tr>
+{% endfor %}
+</table>
+{% endblock %}

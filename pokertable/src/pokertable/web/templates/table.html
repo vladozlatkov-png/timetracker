@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% block title %}{{ game.config.name }}{% endblock %}{% block body %}
+<div class="table-head">
+  <h1>{{ game.config.name }} <span class="muted">{{ game.config.small_blind }}/{{ game.config.big_blind }}</span></h1>
+  <div class="links">
+    <a href="/table/{{ game.config.game_id }}/agents">agents</a> ·
+    <a href="/hands/{{ game.config.game_id }}">hands</a> ·
+    <a href="/stats?game={{ game.config.game_id }}">stats</a>
+    {% if ident and ident.can_administer %} · <button class="link" data-admin="start">start/resume</button> · <button class="link" data-admin="pause">pause</button> · <button class="link" data-admin="stop">stop</button>{% endif %}
+  </div>
+</div>
+<div id="status" class="status"></div>
+<div id="felt" class="felt">
+  <div id="board" class="board"></div>
+  <div id="pot" class="pot"></div>
+  <div id="seats" class="seats"></div>
+</div>
+<div id="controls" class="controls hidden">
+  <span id="hole" class="cards"></span>
+  <button data-action="fold">Fold</button>
+  <button data-action="check">Check</button>
+  <button data-action="call">Call <span id="call-amt"></span></button>
+  <input id="raise-amt" type="number" min="0" step="1">
+  <button data-action="raise">Raise to</button>
+  <span id="timer" class="timer"></span>
+  <span id="err" class="err"></span>
+</div>
+{% if ident and not game.seat_of(ident.id) and ident.can_play and game.config.open_join %}
+<div class="controls"><button id="join">Take a seat</button></div>
+{% endif %}
+<div class="two-col">
+  <div class="card"><h3>Chat</h3><div id="chat" class="chat"></div>
+    {% if ident %}<form id="chat-form" class="row"><input id="chat-text" maxlength="280" placeholder="Say something"><button>Send</button></form>{% endif %}
+  </div>
+  <div class="card"><h3>This hand</h3><ol id="actions" class="actions"></ol><div id="last" class="muted"></div></div>
+</div>
+<script>window.GAME = {{ game.config.game_id|tojson }}; window.ME = {{ (ident.id if ident else none)|tojson }};</script>
+<script src="/static/table.js"></script>
+{% endblock %}

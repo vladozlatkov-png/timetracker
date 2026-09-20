@@ -1,0 +1,35 @@
+:root { --bg:#14181c; --panel:#1e242a; --felt:#1f5f3a; --text:#e8e8e8; --muted:#8a949e; --accent:#f2c14e; --pos:#6fcf97; --neg:#eb5757; }
+* { box-sizing: border-box; }
+body { margin:0; font: 15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background:var(--bg); color:var(--text); }
+nav { display:flex; gap:16px; align-items:center; padding:10px 20px; background:#0e1114; }
+nav a { color:var(--text); text-decoration:none; } nav .brand { font-weight:700; color:var(--accent); } nav .spacer { flex:1; } nav .who { color:var(--muted); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px 20px; }
+h1 { font-size: 22px; margin: 8px 0 12px; } h3 { margin: 6px 0 10px; color: var(--muted); font-weight:600; }
+.banner.warn { background:#5a3b00; color:#ffd88a; padding:8px 20px; }
+.card { background:var(--panel); border-radius:10px; padding:14px; margin: 10px 0; }
+.two-col { display:grid; grid-template-columns: 1fr 1fr; gap:12px; } @media (max-width:800px){ .two-col{grid-template-columns:1fr;} }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .inline { display:inline; }
+.grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; } .grid label { display:flex; flex-direction:column; font-size:13px; color:var(--muted); }
+input, select { background:#0e1114; color:var(--text); border:1px solid #333; border-radius:6px; padding:7px 9px; font-size:14px; }
+button { background:var(--accent); color:#111; border:none; border-radius:6px; padding:7px 12px; font-weight:600; cursor:pointer; }
+button.link { background:none; color:var(--accent); padding:0 4px; font-weight:500; }
+button:disabled { opacity:.35; cursor:default; }
+.muted { color:var(--muted); } .pos { color:var(--pos); } .neg { color:var(--neg); } .hidden { display:none; } .faded { opacity:.6; }
+table.list { width:100%; border-collapse:collapse; } table.list th, table.list td { text-align:left; padding:6px 8px; border-bottom:1px solid #2b333a; } table.list th { color:var(--muted); font-weight:600; font-size:13px; }
+.pill { padding:2px 8px; border-radius:999px; font-size:12px; background:#333; } .pill.running{background:#1f5f3a;} .pill.paused{background:#5a3b00;} .pill.finished{background:#444;} .pill.waiting{background:#2a3a4a;}
+.table-head { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+.status { color:var(--muted); margin-bottom:8px; min-height:1.4em; }
+.felt { background: radial-gradient(ellipse at center, #2b7a4b 0%, var(--felt) 60%, #174a2d 100%); border: 10px solid #3b2a1a; border-radius: 160px; min-height: 380px; position:relative; padding: 20px; }
+.board { position:absolute; top: 42%; left:50%; transform:translate(-50%,-50%); display:flex; gap:6px; min-height:56px; }
+.pot { position:absolute; top: 62%; left:50%; transform:translateX(-50%); color:#fff; font-weight:700; text-shadow:0 1px 2px #000; }
+.seats { position:absolute; inset:0; }
+.seat { position:absolute; width: 150px; transform: translate(-50%, -50%); background: rgba(0,0,0,.55); border-radius: 10px; padding: 8px 10px; font-size:13px; border:2px solid transparent; }
+.seat.acting { border-color: var(--accent); box-shadow: 0 0 12px var(--accent); } .seat.folded { opacity:.45; } .seat.me { background: rgba(40,40,80,.75); }
+.seat .name { font-weight:700; } .seat .stack { color:#ffe08a; } .seat .bet { color:#9fd; } .seat .btn { display:inline-block; background:#fff; color:#000; border-radius:50%; width:18px; height:18px; text-align:center; font-size:11px; font-weight:800; line-height:18px; margin-left:4px; }
+.cardface { display:inline-block; background:#fff; color:#000; border-radius:5px; padding: 3px 5px; min-width: 34px; text-align:center; font-weight:700; font-size:16px; margin-right:3px; }
+.cardface.r { color:#c1272d; } .cardface.back { background: repeating-linear-gradient(45deg,#335,#335 4px,#446 4px,#446 8px); color:transparent; }
+.cards { font-family: ui-monospace, monospace; }
+.controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+.controls input { width: 110px; } .timer { color:var(--accent); font-weight:700; } .err { color:var(--neg); }
+.chat { max-height: 220px; overflow:auto; font-size:14px; } .chat div { padding:2px 0; } .chat b { color:var(--accent); }
+.actions { max-height: 220px; overflow:auto; font-size: 13px; padding-left: 20px; }

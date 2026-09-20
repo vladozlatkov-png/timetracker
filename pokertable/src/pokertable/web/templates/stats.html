@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block body %}
+<h1>Statistics{% if game %} · {{ game }}{% endif %}</h1>
+<p>Scope: <a href="/stats">all games</a>{% for g in games %} · <a href="/stats?game={{ g.config.game_id }}">{{ g.config.game_id }}</a>{% endfor %}</p>
+<table class="list">
+<tr><th>Player</th><th>Hands</th><th>Net</th><th>bb/100 (95% CI)</th><th>VPIP</th><th>PFR</th><th>AF</th><th>WTSD</th><th>W$SD</th><th>Timeouts</th></tr>
+{% for s in stats %}
+<tr class="{{ 'faded' if s.sample_warning else '' }}">
+<td>{{ s.name }}</td><td>{{ s.hands }}</td><td class="{{ 'pos' if s.net_chips > 0 else 'neg' if s.net_chips < 0 else '' }}">{{ '%+d' % s.net_chips }}</td>
+<td>{{ '%+.1f' % s.bb_per_100.value }}{% if s.bb_per_100.low is not none %} <span class="muted">({{ '%+.1f' % s.bb_per_100.low }} .. {{ '%+.1f' % s.bb_per_100.high }})</span>{% endif %}</td>
+<td>{{ s.vpip.value }}%</td><td>{{ s.pfr.value }}%</td><td>{{ s.af }}</td><td>{{ s.wtsd.value }}%</td><td>{{ s.wsd.value }}%</td><td>{{ s.timeouts }}</td></tr>
+{% endfor %}
+</table>
+<p class="muted">Rows in grey have fewer than 1,000 hands. Confidence intervals that include zero do not separate the players.</p>
+{% endblock %}

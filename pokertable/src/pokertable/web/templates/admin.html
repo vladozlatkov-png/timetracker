@@ -1,0 +1,60 @@
+{% extends "base.html" %}{% block body %}
+<h1>Administration</h1>
+<div class="two-col">
+<div class="card">
+<h3>Create a table</h3>
+<form id="create-game" class="grid">
+  <label>ID <input name="game_id" value="table-{{ games|length + 1 }}" pattern="[a-zA-Z0-9_-]+"></label>
+  <label>Name <input name="name" value="Table {{ games|length + 1 }}"></label>
+  <label>Small blind <input name="small_blind" type="number" value="5"></label>
+  <label>Big blind <input name="big_blind" type="number" value="10"></label>
+  <label>Starting stack <input name="starting_stack" type="number" value="1000"></label>
+  <label>Max seats <input name="max_seats" type="number" value="6" min="2" max="9"></label>
+  <label>Decision seconds <input name="decision_seconds" type="number" value="90"></label>
+  <label>Hand limit <input name="hand_limit" type="number" value="100"></label>
+  <label>Pause between hands (s) <input name="hand_pause_seconds" type="number" value="3"></label>
+  <label><input name="reveal_all_after_game" type="checkbox" checked> Reveal all hole cards to analysts after the game</label>
+  <label><input name="open_join" type="checkbox" checked> Players may seat themselves</label>
+  <label><input name="auto_rebuy" type="checkbox"> Auto rebuy when a stack hits zero</label>
+  <button>Create</button>
+</form>
+<h3>Tables</h3>
+<table class="list">
+<tr><th>ID</th><th>Status</th><th>Seats</th><th>Hand</th><th>Actions</th></tr>
+{% for g in games %}
+<tr><td><a href="/table/{{ g.config.game_id }}">{{ g.config.game_id }}</a></td><td><span class="pill {{ g.status }}">{{ g.status }}</span></td>
+<td>{% for s in g.seats.values() %}{{ s.seat }}:{{ s.name }}({{ s.stack }}) {% endfor %}</td><td>{{ g.hand_number }}</td>
+<td><button class="link" data-cmd="start" data-game="{{ g.config.game_id }}">start/resume</button>
+<button class="link" data-cmd="pause" data-game="{{ g.config.game_id }}">pause</button>
+<button class="link" data-cmd="stop" data-game="{{ g.config.game_id }}">stop</button>
+<button class="link" data-cmd="clear-chat" data-game="{{ g.config.game_id }}">clear chat</button></td></tr>
+{% endfor %}
+</table>
+<h3>Seat an identity</h3>
+<form id="seat-form" class="row">
+  <select name="game_id">{% for g in games %}<option>{{ g.config.game_id }}</option>{% endfor %}</select>
+  <select name="identity_id">{% for i in identities if i.active and i.can_play %}<option>{{ i.id }}</option>{% endfor %}</select>
+  <input name="seat" type="number" placeholder="seat (auto)" min="1" max="9">
+  <button>Seat</button>
+</form>
+</div>
+<div class="card">
+<h3>Identities</h3>
+<form id="create-identity" class="row">
+  <input name="name" placeholder="name" required>
+  <select name="role"><option>player</option><option>observer</option><option>analyst</option><option>admin</option></select>
+  <button>Create key</button>
+</form>
+<pre id="new-key" class="hidden"></pre>
+<table class="list">
+<tr><th>ID</th><th>Role</th><th>Active</th><th></th></tr>
+{% for i in identities %}
+<tr><td>{{ i.id }}</td><td>{{ i.role }}</td><td>{{ 'yes' if i.active else 'revoked' }}</td>
+<td>{% if i.active and i.id != ident.id %}<button class="link" data-revoke="{{ i.id }}">revoke</button>{% endif %}</td></tr>
+{% endfor %}
+</table>
+<p class="muted">Keys from config.toml are re-applied at every start. Keys created here live in the database.</p>
+</div>
+</div>
+<script src="/static/admin.js"></script>
+{% endblock %}

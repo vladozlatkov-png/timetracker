@@ -1,0 +1,23 @@
+{% extends "base.html" %}{% block body %}
+<h1>Hand {{ hand_number }} at {{ game.config.name }}</h1>
+<p><a href="/hands/{{ game.config.game_id }}">all hands</a></p>
+{% if not hand %}<p class="muted">Not completed or not found.</p>{% else %}
+<div class="card">
+<p>Button: seat {{ hand.button_seat }} · Board: <span class="cards">{{ hand.board|join(' ') }}</span> · Winners: {{ hand.winners|join(', ') }}</p>
+{% if hand.hole_cards %}<p>All hole cards (analyst view): {% for s, c in hand.hole_cards.items() %}seat {{ s }} <span class="cards">{{ c|join(' ') }}</span> · {% endfor %}</p>{% endif %}
+<ol class="actions">
+{% for e in hand.events %}
+<li><span class="muted">{{ e.type }}</span>
+{% if e.type == 'blind' %}seat {{ e.seat }} posts {{ e.amount }}
+{% elif e.type == 'deal_hole' %}seat {{ e.seat }} dealt <span class="cards">{{ e.cards|join(' ') }}</span>
+{% elif e.type == 'action' %}seat {{ e.seat }} {{ e.action }}{% if e.amount %} {{ e.amount }}{% endif %} ({{ e.phase }})
+{% elif e.type == 'timeout' %}seat {{ e.seat }} timed out → {{ e.fallback }}
+{% elif e.type == 'street' %}{{ e.phase }} <span class="cards">{{ e.cards|join(' ') }}</span>
+{% elif e.type == 'showdown' %}seat {{ e.seat }} shows <span class="cards">{{ e.cards|join(' ') }}</span>
+{% elif e.type == 'settlement' %}{% for s, n in e.payoffs.items() %}seat {{ s }}: {{ '%+d' % n }} · {% endfor %}
+{% endif %}</li>
+{% endfor %}
+</ol>
+</div>
+{% endif %}
+{% endblock %}
